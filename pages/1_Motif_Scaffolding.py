@@ -5,15 +5,58 @@ from pathlib import Path
 import subprocess
 import time
 import zipfile
+from streamlit_molstar import st_molstar_content
+import io
 
 
-def zip_files(files, output_zip):
-    """Zips the given list of files into output_zip."""
+@st.fragment
+def run():
+    st.header('Results')
+    with TemporaryDirectory() as tdir:
+        tdir = Path(tdir)
+        temp_pdb = tdir / 'input.pdb'
+        with open(temp_pdb, 'wb') as f:
+            f.write(pdb.getvalue())
+        cmd = f"""
+        cd {tdir}
+        source /opt/anaconda3/etc/profile.d/conda.sh
+        conda activate SE3nv
+        export MKL_SERVICE_FORCE_INTEL=1
+        python $HOME/RFdiffusion/scripts/run_inference.py inference.output_prefix=res/design inference.input_pdb={temp_pdb}"""
+        cmd += f" 'contigmap.contigs={sel1}' inference.num_designs={n_design} diffuser.T={n_T}"
+        if len(sel2) > 2:
+            cmd += f" 'contigmap.inpaint_seq={sel2}'"
+        process = subprocess.Popen(['/bin/bash', '-c', cmd])
+        bar = st.progress(0, 'Running inference..')
+        while process.poll() is None:
+            output_pdbs = sorted((tdir / 'res').glob('*.pdb'))
+            bar.progress(len(output_pdbs) / n_design)
+            time.sleep(0.5)
+        time.sleep(1)
+        bar.empty()
+        st.session_state['results'] = {}
+        for i in output_pdbs:
+            with open(i, 'r') as f:
+                st.session_state['results'][i.name] = f.read()
+    choice = st.selectbox('Visualize your results', st.session_state['results'].keys())
+    st_molstar_content(st.session_state['results'][choice], 'pdb', height='500px')
+    st.download_button('Download result PDBs', zip_files(output_pdbs), 'motif_scaffolding_results.zip')
 
-    with zipfile.ZipFile(output_zip, 'w') as zipf:
-        for file in files:
-            # Add each file to the zip archive
-            zipf.write(file, file.name)
+
+def zip_files(file_paths):
+    # Create a BytesIO object
+    zip_buffer = io.BytesIO()
+
+    # Create a zip file in the BytesIO buffer
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for file_path in file_paths:
+            # Add each file to the zip
+            zip_file.write(file_path, arcname=str(file_path).split('/')[-1])  # Use only the filename in the zip
+
+    # Seek to the beginning of the BytesIO object
+    zip_buffer.seek(0)
+
+    return zip_buffer
 
 
 def contig_upload_edit(parent, table, key):
@@ -54,9 +97,9 @@ if __name__ == '__main__':
     if 'contig_table' not in st.session_state:
         st.session_state['contig_table'] = pd.DataFrame(
                 {
-                    'chain': ['A', None, 'B', None],
-                    'min_len': [20, 0, 40, 100],
-                    'max_len': [100, 0, 50, 100],
+                    'chain': ['A', None, 'L', None],
+                    'min_len': [54, 0, 40, 20],
+                    'max_len': [74, 0, 50, 20],
                 }
             )
     if 'inpaint_table' not in st.session_state:
@@ -80,31 +123,4 @@ if __name__ == '__main__':
                             type='primary')
 
     if clicked:
-        st.header('Results')
-        with TemporaryDirectory() as tdir:
-            tdir = Path(tdir)
-            temp_pdb = tdir / '.pdb'
-            with open(temp_pdb, 'wb') as f:
-                f.write(pdb.getvalue())
-            cmd = f"""
-            cd {tdir}
-            source /opt/anaconda3/etc/profile.d/conda.sh
-            conda activate SE3nv
-            python $HOME/RFdiffusion/scripts/run_inference.py inference.output_prefix=res inference.input_pdb={temp_pdb}"""
-            cmd += f' contigmap.contigs={sel1} inference.num_designs={n_design} diffuser.T={n_T}'
-            if len(sel2) > 2:
-                cmd += f" 'contigmap.inpaint_seq={sel2}'"
-            st.text(cmd)
-            process = subprocess.Popen(cmd, shell=True)
-            bar = st.progress(0, 'Running inference..')
-            while process.poll() is None:
-                output_pdbs = list(tdir.glob('*.pdb'))
-                bar.progress(len(output_pdbs) / n_design)
-                time.sleep(0.5)
-            time.sleep(1)
-            bar.empty()
-            output_zip = tdir / 'out.zip'
-            zip_files(output_pdbs, output_zip)
-            with open(output_zip, 'rb') as f:
-                st.download_button('Download result PDBs', f)
-
+        run()
