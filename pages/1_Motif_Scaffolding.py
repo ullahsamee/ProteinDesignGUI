@@ -10,37 +10,11 @@ import io
 
 
 @st.fragment
-def run():
+def show():
     st.header('Results')
-    with TemporaryDirectory() as tdir:
-        tdir = Path(tdir)
-        temp_pdb = tdir / 'input.pdb'
-        with open(temp_pdb, 'wb') as f:
-            f.write(pdb.getvalue())
-        cmd = f"""
-        cd {tdir}
-        source /opt/anaconda3/etc/profile.d/conda.sh
-        conda activate SE3nv
-        export MKL_SERVICE_FORCE_INTEL=1
-        python $HOME/RFdiffusion/scripts/run_inference.py inference.output_prefix=res/design inference.input_pdb={temp_pdb}"""
-        cmd += f" 'contigmap.contigs={sel1}' inference.num_designs={n_design} diffuser.T={n_T}"
-        if len(sel2) > 2:
-            cmd += f" 'contigmap.inpaint_seq={sel2}'"
-        process = subprocess.Popen(['/bin/bash', '-c', cmd])
-        bar = st.progress(0, 'Running inference..')
-        while process.poll() is None:
-            output_pdbs = sorted((tdir / 'res').glob('*.pdb'))
-            bar.progress(len(output_pdbs) / n_design)
-            time.sleep(0.5)
-        time.sleep(1)
-        bar.empty()
-        st.session_state['results'] = {}
-        for i in output_pdbs:
-            with open(i, 'r') as f:
-                st.session_state['results'][i.name] = f.read()
     choice = st.selectbox('Visualize your results', st.session_state['results'].keys())
     st_molstar_content(st.session_state['results'][choice], 'pdb', height='500px')
-    st.download_button('Download result PDBs', zip_files(output_pdbs), 'motif_scaffolding_results.zip')
+    st.download_button('Download result PDBs', zio, 'motif_scaffolding_results.zip')
 
 
 def zip_files(file_paths):
@@ -123,4 +97,31 @@ if __name__ == '__main__':
                             type='primary')
 
     if clicked:
-        run()
+        with TemporaryDirectory() as tdir:
+            tdir = Path(tdir)
+            temp_pdb = tdir / 'input.pdb'
+            with open(temp_pdb, 'wb') as f:
+                f.write(pdb.getvalue())
+            cmd = f"""
+            cd {tdir}
+            source /opt/anaconda3/etc/profile.d/conda.sh
+            conda activate SE3nv
+            export MKL_SERVICE_FORCE_INTEL=1
+            python $HOME/RFdiffusion/scripts/run_inference.py inference.output_prefix=res/design inference.input_pdb={temp_pdb}"""
+            cmd += f" 'contigmap.contigs={sel1}' inference.num_designs={n_design} diffuser.T={n_T}"
+            if len(sel2) > 2:
+                cmd += f" 'contigmap.inpaint_seq={sel2}'"
+            process = subprocess.Popen(['/bin/bash', '-c', cmd])
+            bar = st.progress(0, f'Running inference.. ({0}/{n_design})')
+            while process.poll() is None:
+                output_pdbs = sorted((tdir / 'res').glob('*.pdb'))
+                bar.progress(len(output_pdbs) / n_design, f'Running inference.. ({len(output_pdbs)}/{n_design})')
+                time.sleep(0.5)
+            time.sleep(1)
+            bar.empty()
+            st.session_state['results'] = {}
+            for i in output_pdbs:
+                with open(i, 'r') as f:
+                    st.session_state['results'][i.name] = f.read()
+            zio = zip_files(output_pdbs)
+            show()
