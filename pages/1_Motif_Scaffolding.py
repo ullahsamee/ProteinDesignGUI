@@ -104,9 +104,6 @@ if __name__ == '__main__':
                 f.write(pdb.getvalue())
             cmd = f"""
             cd {tdir}
-            source /opt/anaconda3/etc/profile.d/conda.sh
-            conda activate SE3nv
-            export MKL_SERVICE_FORCE_INTEL=1
             python $HOME/RFdiffusion/scripts/run_inference.py inference.output_prefix=res/design inference.input_pdb={temp_pdb}"""
             cmd += f" 'contigmap.contigs={sel1}' inference.num_designs={n_design} diffuser.T={n_T}"
             if len(sel2) > 2:
