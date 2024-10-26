@@ -1,6 +1,6 @@
 # ProteinDesignGUI
-![](https://img.shields.io/badge/powered_by-streamlit-green)
-![](https://img.shields.io/badge/visualized_by-molstar-blue)
+![](https://img.shields.io/badge/powered_by-streamlit-green?link=https://streamlit.io/)
+![](https://img.shields.io/badge/visualized_by-molstar-blue?link=https://github.com/pragmatic-streamlit/streamlit-molstar)
 
 Implementing RFdiffusion-based protein design as online GUI, powered by streamlit.
 
