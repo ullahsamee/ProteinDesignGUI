@@ -6,7 +6,16 @@ Implementing RFdiffusion-based protein design as online GUI, powered by streamli
 
 ## User Guide
 
-Clone the repo and install the required packages. Run the command to start the server.
+Clone the repo and install the required packages.
+
+If using a github installed RFdiffusion:
+
+```bash
+conda activate SE3nv    # to make sure that the GUI can call RFdiffusion
+pip install streamlit streamlit_molstar
+```
+
+Run the command to start the server (in `SE3nv`).
 
 ```bash
 streamtlit run Home.py
@@ -38,7 +47,9 @@ the length range of the generated sequence.
 
 * To indicate a break, unset the chain type and set the min and max length as 0.
 
->In the above example, `[A54-74/0 L40-50/20-20]` means generating 2 sequences. One uses the 54th~74th aa on chain A, while the other uses 40th~50th aa on chain L and appends a generated sequence of 20 aa. 
+> In the above example, `[A54-74/0 L40-50/20-20]` means generating 2 sequences.
+> 1. uses the 54th~74th aa on chain A (motif)
+> 2. uses 40th~50th aa on chain L (motif) and appends a generated sequence of 20 aa (scaffold). 
 
 #### Results
 
@@ -46,5 +57,7 @@ The results can be inspected via a molstar viewer. All the generated PDB will be
 any one of them to visualize in the 3D scene.
 
 All the files can be downloaded as a zip file.
+
+![img.png](docs/result.png)
 
 ---
