@@ -1,0 +1,4 @@
+PATH:
+    RFdiffusion: '$HOME/RFdiffusion'
+    ColabFold: '/opt/localcolabfold'
+    ProteinMPNN: '/opt/ProteinMPNN'
