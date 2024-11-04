@@ -72,55 +72,66 @@ if __name__ == '__main__':
         exe = f"{config['PATH']['RFdiffusion']}/scripts/run_inference.py"
     st.set_page_config('Protein Design: Motif Scaffolding', layout='wide')
     st.title('Motif Scaffolding')
-    tab1, tab2 = st.tabs(['Batch Mode', 'Interactive Mode'])
-
-    with tab1:
-        st.header('Batch Mode')
-        files = st.file_uploader('Upload config files for each task', '.yml', key=f'configs.uploader', accept_multiple_files=True)
-        if files:
-            clicked1 = st.button(f'Run batch inference', use_container_width=True, type='primary')
-
-            if clicked1:
-                for i, yml in enumerate(files):
-                    try:
-                        config = yaml.safe_load(yml)
-                        n_design = config['n_design']
-                        n_T = config['n_timestamp']
-                        path = Path(config['path'])
-                        assert path.exists(), f"Path doesn't exist: {path}"
-                        pdb = list(path.glob('*.pdb'))
-                        assert len(pdb) == 1, "A single protein structure is required."
-                        pdb = pdb[0]
-                        contig = path / 'contig.csv'
-                        assert contig.exists(), "Contig map is required."
-                        contig = pd.read_csv(contig, usecols=['chain', 'min_len', 'max_len'])
-                        contig = convert_selection(contig)
-                        inpaint = path / 'inpaint.csv'
-                        if inpaint.exists():
-                            inpaint = pd.read_csv(inpaint, usecols=['chain', 'min_len', 'max_len'])
-                            inpaint = convert_selection(inpaint)
-                        else:
-                            inpaint = None
-
-                        cmd = f"""
-                        cd {path}
-                        python {exe} inference.output_prefix=results/design inference.input_pdb={pdb}"""
-                        cmd += f" 'contigmap.contigs={contig}' inference.num_designs={n_design} diffuser.T={n_T}"
-                        if inpaint is not None:
-                            cmd += f" 'contigmap.inpaint_seq={inpaint}'"
-                        process = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        msg = f'Running inference.. ({i}/{len(files)})'
-                        bar = st.progress(0, msg)
-                        while process.poll() is None:
-                            output_pdbs = sorted((path / 'results').glob('*.pdb'))
-                            bar.progress(len(output_pdbs) / n_design, msg)
-                            time.sleep(0.5)
-                        time.sleep(1)
-                        bar.empty()
-                    except Exception as e:
-                        st.write(e)
+    tab1, tab2 = st.tabs(['Interactive', 'Batch'])
 
     with tab2:
+        st.header('Batch Mode')
+        with st.form('path', border=False):
+            c1, c2 = st.columns([3, 1], vertical_alignment='bottom')
+            root = c1.text_input('Root directory for input batches')
+            clicked2 = c2.form_submit_button('Scan Directory', use_container_width=True)
+        if clicked2:
+            folders = []
+            for i in Path(root).glob('*'):
+                if not i.is_dir():
+                    continue
+                if not (i / 'contig.csv').exists():
+                    continue
+                temp = list(i.glob('*.pdb'))
+                if len(temp) != 1:
+                    continue
+                folders.append(i)
+                st.write(i)
+            if folders:
+                placeholder = st.empty()
+                with placeholder.container():
+                    st.write(folders)
+                    clicked1 = placeholder.button(f'Run batch inference', use_container_width=True, type='primary')
+                if clicked1:
+                    placeholder.empty()
+                    for i, folder in enumerate(folders):
+                        try:
+                            config = yaml.safe_load(list(folder.glob('*.yml'))[0])
+                            n_design = config['n_design']
+                            n_T = config['n_timestamp']
+                            pdb = list(folder.glob('*.pdb'))[0]
+                            contig = pd.read_csv(folder / 'contig.csv', usecols=['chain', 'min_len', 'max_len'])
+                            contig = convert_selection(contig)
+                            if inpaint.exists():
+                                inpaint = pd.read_csv(folder / 'inpaint.csv', usecols=['chain', 'min_len', 'max_len'])
+                                inpaint = convert_selection(inpaint)
+                            else:
+                                inpaint = None
+
+                            cmd = f"""
+                            cd {folder}
+                            python {exe} inference.output_prefix=results/design inference.input_pdb={pdb}"""
+                            cmd += f" 'contigmap.contigs={contig}' inference.num_designs={n_design} diffuser.T={n_T}"
+                            if inpaint is not None:
+                                cmd += f" 'contigmap.inpaint_seq={inpaint}'"
+                            process = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            msg = f'Running inference.. ({i}/{len(folders)})'
+                            bar = st.progress(0, msg)
+                            while process.poll() is None:
+                                output_pdbs = sorted((folder / 'results').glob('*.pdb'))
+                                bar.progress(len(output_pdbs) / n_design, msg)
+                                time.sleep(0.5)
+                            time.sleep(1)
+                            bar.empty()
+                        except Exception as e:
+                            st.write(e)
+
+    with tab1:
         st.header('Interactive Mode')
         pdb = st.file_uploader('Input a PDB to for motif reference', '.pdb')
         if pdb is not None:
