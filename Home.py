@@ -11,7 +11,7 @@ def add():
         [None] + [str(i) for i in st.session_state['trials']],
     )
     pdb = st.file_uploader('Input a PDB for motif reference (optional if with template)', '.pdb')
-    if st.button('Submit', use_container_width=True):
+    if st.button('Confirm', use_container_width=True):
         assert name not in st.session_state['trials'], f"Trial {name} already exists."
         temp = Path(st.session_state['wkdir']) / name
         temp.mkdir(exist_ok=True)
@@ -45,7 +45,7 @@ def delete():
         "Select an existing trial to delete",
         st.session_state['trials'],
     )
-    if st.button('Submit'):
+    if st.button('Confirm'):
         st.session_state['trials'].remove(to_del)
         shutil.rmtree(to_del.parent)
         st.rerun()
