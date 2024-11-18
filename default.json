@@ -1,0 +1,18 @@
+{
+  "diffusion": {
+    "n_design": 100,
+    "n_timestamp": 50,
+    "contig": "contig.csv",
+    "inpaint": "inpaint.csv"
+  },
+  "fold": {
+    "use_amber": true,
+    "use_template": true,
+    "n_mod": 5,
+    "n_recycle": 3
+  },
+  "mpnn": {
+    "n_sample": 2,
+    "temperature": 0.1
+  }
+}

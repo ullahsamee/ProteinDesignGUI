@@ -1,0 +1,15 @@
+fold:
+  n_recycle: 3
+  n_mod: 5
+  use_amber: true
+  use_template: true
+diffusion:
+  contig: contig.csv
+  inpaint: inpaint.csv
+  n_design: 100
+  n_timestamp: 50
+  protein: 5TPN.pdb
+mpnn:
+  n_sample: 2
+  temperature: 0.1
+name: test-0
