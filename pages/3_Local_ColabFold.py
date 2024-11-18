@@ -66,7 +66,8 @@ if __name__ == '__main__':
                         shutil.rmtree(wkdir / prefix, ignore_errors=True)
                         cmd = get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template)
                         st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        st.session_state['process_args'] = n_mod, 'Running prediction for single trial..', wkdir, prefix
+                        nfiles = len([*wkdir.glob('seqs/*.fasta')])
+                        st.session_state['process_args'] = n_mod * nfiles, 'Running prediction for single trial..', wkdir, prefix
                     progress()
                     st.success('Trial running complete!', icon="✅")
                 except Exception as e:
@@ -93,8 +94,9 @@ if __name__ == '__main__':
                         shutil.rmtree(wkdir / prefix, ignore_errors=True)
                         cfg = get_config(path)['fold']
                         cmd = get_cmd(wkdir, **cfg)
+                        nfiles = len([*wkdir.glob('seqs/*.fasta')])
                         st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        st.session_state['process_args'] = cfg['n_mod'], f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
+                        st.session_state['process_args'] = cfg['n_mod'] * nfiles, f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
                         st.session_state['batch_progress'] = i
                     if i == st.session_state['batch_progress']:
                         progress()
