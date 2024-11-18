@@ -40,19 +40,21 @@ if __name__ == '__main__':
                 put_config(c, active_trial)
                 st.success('Configuration saved!', icon="✅")
             if clicked2:
-                wkdir = active_trial.parent
-                files = [*wkdir.glob(f'{prefix}*.pdb')]
-                msg = f'Predicting sequence..'
-                bar = st.progress(0, msg)
-                for i, pdb in enumerate(files):
-                    cmd = get_cmd(wkdir, pdb, n_sample, temperature)
-                    subprocess.run(['/bin/bash', '-c', cmd])
-                    bar.progress((i + 1) / len(files), msg)
-                for i in (wkdir / 'seq').glob('*.fa'):
-                    post_process_mpnn(i)
-                bar.empty()
-                st.success('Trial running complete!', icon="✅")
-
+                try:
+                    wkdir = active_trial.parent
+                    files = [*wkdir.glob(f'{prefix}*.pdb')]
+                    msg = f'Predicting sequence..'
+                    bar = st.progress(0, msg)
+                    for i, pdb in enumerate(files):
+                        cmd = get_cmd(wkdir, pdb, n_sample, temperature)
+                        subprocess.run(['/bin/bash', '-c', cmd])
+                        bar.progress((i + 1) / len(files), msg)
+                    for i in (wkdir / 'seqs').glob('*.fa'):
+                        post_process_mpnn(i)
+                    bar.empty()
+                    st.success('Trial running complete!', icon="✅")
+                except Exception as e:
+                    st.write(e)
     with tab2:
         if st.button('Batch Run', use_container_width=True, type='primary'):
             for i, path in enumerate(trials):
@@ -66,7 +68,7 @@ if __name__ == '__main__':
                         cmd = get_cmd(wkdir, pdb, **cfg)
                         subprocess.run(['/bin/bash', '-c', cmd])
                         bar.progress((j + 1) / len(files), msg)
-                    for j in (wkdir / 'seq').glob('*.fa'):
+                    for j in (wkdir / 'seqs').glob('*.fa'):
                         post_process_mpnn(j)
                     bar.empty()
                 except Exception as e:

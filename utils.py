@@ -3,7 +3,6 @@ import pandas as pd
 from pathlib import Path
 import yaml
 from streamlit_molstar import st_molstar_content
-from itertools import tee
 import time
 
 
@@ -36,6 +35,10 @@ def init():
         st.session_state['trials'] = []
     if 'wkdir' not in st.session_state:
         st.session_state['wkdir'] = ''
+    if 'process' not in st.session_state:
+        st.session_state['process'] = None
+    if 'batch_progress' not in st.session_state:
+        st.session_state['batch_progress'] = None
 
 
 def validate_dir(d):
@@ -56,7 +59,7 @@ def post_process_mpnn(path):
     with open(path, 'r') as f:
         text = '>' + f.read().split('>')[1]
         text = text.replace('/', ':')
-    with open(path, 'w') as f:
+    with open(path.with_suffix('.fasta'), 'w') as f:
         f.write(text)
 
 
@@ -69,10 +72,11 @@ def visual(pdb_list):
         st_molstar_content(pdb, 'pdb', height='500px')
 
 
-def progress(process, tot, msg, glob):
+def progress():
+    tot, msg, wkdir, prefix = st.session_state['process_args']
     bar = st.progress(0, msg)
-    while process.poll() is None:
-        output_pdbs = [*tee(glob, 1)[0]]
+    while st.session_state['process'].poll() is None:
+        output_pdbs = [*wkdir.glob(f'{prefix}*.pdb')]
         bar.progress(len(output_pdbs) / tot, msg)
         time.sleep(0.5)
     time.sleep(1)

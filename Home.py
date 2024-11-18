@@ -1,8 +1,6 @@
-from utils import *
-import yaml
-from copy import deepcopy
 import shutil
 import json
+from utils import *
 
 
 @st.dialog('Add a new trial')
@@ -10,7 +8,7 @@ def add():
     name = st.text_input('Trial Name')
     template = st.selectbox(
         "Select an existing trial as template",
-        [None] + [st.session_state['trials']],
+        [None] + [str(i) for i in st.session_state['trials']],
     )
     pdb = st.file_uploader('Input a PDB for motif reference (optional if with template)', '.pdb')
     if st.button('Submit', use_container_width=True):
@@ -18,24 +16,24 @@ def add():
         temp = Path(st.session_state['wkdir']) / name
         temp.mkdir(exist_ok=True)
         if template is not None:
-            t = get_config(template)
+            cfg = get_config(template)
             p = Path(template).parent
-            shutil.copy(p / t['protein'], temp)
-            shutil.copy(p / t['contig'], temp)
-            shutil.copy(p / t['inpaint'], temp)
+            shutil.copy(p / cfg['diffusion']['protein'], temp)
+            shutil.copy(p / cfg['diffusion']['contig'], temp)
+            shutil.copy(p / cfg['diffusion']['inpaint'], temp)
         else:
             assert pdb is not None, 'You must have a protein for one trial.'
             with open('default.json', 'r') as f:
-                t = json.load(f)
-            nt = get_table(t, None)
-            nt.to_csv(temp / t['inpaint'], index=False)
-            nt.to_csv(temp / t['contig'], index=False)
+                cfg = json.load(f)
+            nt = get_table(cfg, None)
+            nt.to_csv(temp / cfg['diffusion']['inpaint'], index=False)
+            nt.to_csv(temp / cfg['diffusion']['contig'], index=False)
         if pdb is not None:
-            with open(temp / t['protein'], 'wb') as f:
+            with open(temp / cfg['protein'], 'wb') as f:
                 f.write(pdb.getvalue())
-        t['name'] = name
+        cfg['name'] = name
         p = temp / 'config.yml'
-        put_config(t, p)
+        put_config(cfg, p)
         st.session_state['trials'].append(p)
         st.rerun()
 
@@ -82,7 +80,7 @@ if __name__ == '__main__':
                 trials = st.session_state['trials']
                 for t in trials:
                     c = get_config(t)
-                    c = {'name': c['name'], **c['diffusion'], **c['colabfold'], **c['mpnn']}
+                    c = {'name': c['name'], **c['diffusion'], **c['fold'], **c['mpnn']}
                     c['contig'] = convert_selection(get_table(t, 'contig'))
                     c['inpaint'] = convert_selection(get_table(t, 'inpaint'))
                     df.append(pd.DataFrame([c]))

@@ -1,5 +1,6 @@
 import subprocess
 from utils import *
+import shutil
 
 
 @st.fragment
@@ -15,7 +16,7 @@ def show(pdb_list):
 def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
     cmd = f"""
     cd {wkdir}
-    {exe} seq {prefix} --num-models {n_mod} --num-recycle {n_recycle}
+    {exe} seqs {prefix} --num-models {n_mod} --num-recycle {n_recycle}
     """
     if use_amber:
         cmd += ' --amber'
@@ -37,15 +38,15 @@ if __name__ == '__main__':
     st.title('Local ColabFold')
     tab1, tab2, tab3 = st.tabs(['Configure', 'Visualize', 'Batch'])
 
-    with (tab1):
+    with tab1:
         active_trial = st.selectbox("Select a trial", trials)
         if active_trial is not None:
             config = get_config(active_trial)['fold']
             with st.form(key='fold'):
-                use_amber = st.checkbox('Use amber', config['amber'])
-                use_template = st.checkbox('Use template', config['template'])
+                use_amber = st.checkbox('Use amber', config['use_amber'])
+                use_template = st.checkbox('Use template', config['use_template'])
                 n_mod = st.selectbox('Number of models', [1, 2, 3, 4, 5], config['n_mod'] - 1)
-                n_recycle = st.number_input('Number of recycle', 1, value=3)
+                n_recycle = st.number_input('Number of recycle', 1, value=config['n_recycle'])
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True)
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
@@ -53,17 +54,27 @@ if __name__ == '__main__':
                 config['use_amber'] = use_amber
                 config['use_template'] = use_template
                 config['n_mod'] = n_mod
+                config['n_recycle'] = n_recycle
                 c = get_config(active_trial)
                 c['fold'] = config
                 put_config(c, active_trial)
                 st.success('Configuration saved!', icon="✅")
             if clicked2:
-                wkdir = active_trial.parent
-                cmd = get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template)
-                process = subprocess.Popen(['/bin/bash', '-c', cmd])
-                progress(process, n_mod, 'Running prediction for single trial..',
-                         wkdir.glob(f'{prefix}*.pdb'))
-                st.success('Trial running complete!', icon="✅")
+                try:
+                    if st.session_state['process'] is None:
+                        wkdir = active_trial.parent
+                        shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                        cmd = get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template)
+                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                        st.session_state['process_args'] = n_mod, 'Running prediction for single trial..', wkdir, prefix
+                    progress()
+                    st.success('Trial running complete!', icon="✅")
+                except Exception as e:
+                    st.session_state['process'].terminate()
+                    st.write(e)
+                finally:
+                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
+                        st.session_state['process'] = None
 
     with tab2:
         if active_trial is not None:
@@ -77,13 +88,22 @@ if __name__ == '__main__':
         if st.button('Batch Run', use_container_width=True, type='primary'):
             for i, path in enumerate(trials):
                 try:
-                    wkdir = path.parent
-                    cfg = get_config(path)['fold']
-                    cmd = get_cmd(wkdir, **cfg)
-                    process = subprocess.Popen(['/bin/bash', '-c', cmd])
-                    progress(process, cfg['n_mod'], f'Running prediction.. ({0}/{len(trials)})',
-                             wkdir.glob(f'{prefix}*.pdb'))
+                    if st.session_state['process'] is None:
+                        wkdir = path.parent
+                        shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                        cfg = get_config(path)['fold']
+                        cmd = get_cmd(wkdir, **cfg)
+                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                        st.session_state['process_args'] = cfg['n_mod'], f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
+                        st.session_state['batch_progress'] = i
+                    if i == st.session_state['batch_progress']:
+                        progress()
                 except Exception as e:
+                    st.session_state['process'].terminate()
                     st.write(e)
+                finally:
+                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
+                        st.session_state['process'] = None
+                    st.session_state['batch_progress'] = None
             st.success(f'Batch running complete!', icon="✅")
 
