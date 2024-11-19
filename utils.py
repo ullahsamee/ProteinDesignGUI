@@ -81,3 +81,14 @@ def progress():
         time.sleep(0.5)
     time.sleep(1)
     bar.empty()
+
+
+def extract_chains(pdb):
+    chains = set()  # Use a set to avoid duplicate chain identifiers
+    with open(pdb, 'r') as f:
+        for line in f.readlines():
+            if line.startswith(("ATOM", "HETATM")):
+                chain_id = line[21].strip()  # Chain ID is in column 22 (index 21 in Python)
+                if chain_id:
+                    chains.add(chain_id)
+    return sorted(chains)

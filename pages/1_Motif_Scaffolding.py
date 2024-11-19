@@ -4,12 +4,12 @@ from utils import *
 
 
 @st.fragment
-def table_edit(data, key):
+def table_edit(data, pdb, key):
     table = st.data_editor(
         data, column_order=None, num_rows='dynamic', use_container_width=True, key=f'{key}.data',
         column_config={
             'chain': st.column_config.SelectboxColumn('Chain',
-                                                      options=[*(chr(i) for i in range(ord('A'), ord('Z') + 1))],
+                                                      options=extract_chains(pdb),
                                                       required=False),
             'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
             'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
@@ -52,17 +52,18 @@ if __name__ == '__main__':
         active_trial = st.selectbox("Select a trial", trials)
         if active_trial is not None:
             config = get_config(active_trial)['diffusion']
-            with st.form(key='scf'):
+            with st.container(border=True):
                 col1, col2 = st.columns(2)
                 n_design = col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d')
                 n_timestamp = col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d')
                 st.subheader('Contigs Setting')
-                table_edit(get_table(active_trial, 'contig'), 'contig_1')
+                pdb = active_trial.parent / config['protein']
+                table_edit(get_table(active_trial, 'contig'), pdb, 'contig_1')
                 st.subheader('Inpaint Setting')
-                table_edit(get_table(active_trial, 'inpaint'), 'inpaint_1')
+                table_edit(get_table(active_trial, 'inpaint'), pdb, 'inpaint_1')
                 col1, col2 = st.columns(2)
-                clicked1 = col1.form_submit_button('Save', use_container_width=True)
-                clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
+                clicked1 = col1.button('Save', use_container_width=True)
+                clicked2 = col2.button('Run', use_container_width=True, type='primary')
             if clicked1:
                 config['n_design'] = n_design
                 config['n_timestamp'] = n_timestamp

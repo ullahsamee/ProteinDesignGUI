@@ -13,6 +13,7 @@ def add():
     pdb = st.file_uploader('Input a PDB for motif reference (optional if with template)', '.pdb')
     if st.button('Confirm', use_container_width=True):
         assert name not in st.session_state['trials'], f"Trial {name} already exists."
+        assert len(name) > 0, "Trial name cannot be empty."
         temp = Path(st.session_state['wkdir']) / name
         temp.mkdir(exist_ok=True)
         if template is not None:
