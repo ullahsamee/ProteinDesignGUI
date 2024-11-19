@@ -29,7 +29,8 @@ def add():
             nt.to_csv(temp / cfg['diffusion']['inpaint'], index=False)
             nt.to_csv(temp / cfg['diffusion']['contig'], index=False)
         if pdb is not None:
-            with open(temp / cfg['protein'], 'wb') as f:
+            cfg['diffusion']['protein'] = pdb.name
+            with open(temp / pdb.name, 'wb') as f:
                 f.write(pdb.getvalue())
         cfg['name'] = name
         p = temp / 'config.yml'

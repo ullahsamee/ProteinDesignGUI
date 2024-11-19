@@ -1,7 +1,7 @@
 diffusion:
   contig: contig.csv
   inpaint: inpaint.csv
-  n_design: 2
+  n_design: 3
   n_timestamp: 15
   protein: 5TPN.pdb
 fold:
