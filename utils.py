@@ -57,8 +57,7 @@ def put_config(c, path):
 
 def post_process_mpnn(path):
     with open(path, 'r') as f:
-        text = '>' + f.read().split('>')[1]
-        text = text.replace('/', ':')
+        text = '>' + '>'.join(f.read().split('>')[2:]).replace('/', ':')
     with open(path.with_suffix('.fasta'), 'w') as f:
         f.write(text)
 
@@ -92,3 +91,18 @@ def extract_chains(pdb):
                 if chain_id:
                     chains.add(chain_id)
     return sorted(chains)
+
+
+@st.fragment
+def table_edit(data, pdb, key):
+    ops = extract_chains(pdb) if pdb is not None else [*(chr(i) for i in range(ord('A'), ord('Z') + 1))]
+    table = st.data_editor(
+        data, column_order=None, num_rows='dynamic', use_container_width=True, key=f'{key}.data',
+        column_config={
+            'chain': st.column_config.SelectboxColumn('Chain', options=ops, required=pdb is None),
+            'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
+            'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
+        }
+    )
+    st.session_state[key] = table
+    st.markdown(f'The specified sequence map: `{convert_selection(st.session_state[key])}`')

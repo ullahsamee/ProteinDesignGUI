@@ -13,6 +13,8 @@
   },
   "mpnn": {
     "n_sample": 2,
-    "temperature": 0.1
+    "temperature": 0.1,
+    "fixed": "fixed.csv",
+    "invert_fix": false
   }
 }

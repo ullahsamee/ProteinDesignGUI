@@ -3,22 +3,6 @@ import shutil
 from utils import *
 
 
-@st.fragment
-def table_edit(data, pdb, key):
-    table = st.data_editor(
-        data, column_order=None, num_rows='dynamic', use_container_width=True, key=f'{key}.data',
-        column_config={
-            'chain': st.column_config.SelectboxColumn('Chain',
-                                                      options=extract_chains(pdb),
-                                                      required=False),
-            'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
-            'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
-        }
-    )
-    st.session_state[key] = table
-    st.markdown(f'The specified sequence map: `{convert_selection(st.session_state[key])}`')
-
-
 def get_cmd(wkdir, contig, inpaint, n_design, n_timestamp, protein):
     if not isinstance(contig, pd.DataFrame):
         contig = pd.read_csv(wkdir / contig)
@@ -56,8 +40,8 @@ if __name__ == '__main__':
                 col1, col2 = st.columns(2)
                 n_design = col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d')
                 n_timestamp = col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d')
-                st.subheader('Contigs Setting')
                 pdb = active_trial.parent / config['protein']
+                st.subheader('Contigs Setting')
                 table_edit(get_table(active_trial, 'contig'), pdb, 'contig_1')
                 st.subheader('Inpaint Setting')
                 table_edit(get_table(active_trial, 'inpaint'), pdb, 'inpaint_1')

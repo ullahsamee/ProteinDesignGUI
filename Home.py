@@ -22,6 +22,7 @@ def add():
             shutil.copy(p / cfg['diffusion']['protein'], temp)
             shutil.copy(p / cfg['diffusion']['contig'], temp)
             shutil.copy(p / cfg['diffusion']['inpaint'], temp)
+            shutil.copy(p / cfg['mpnn']['fixed'], temp)
         else:
             assert pdb is not None, 'You must have a protein for one trial.'
             with open('default.json', 'r') as f:
@@ -29,6 +30,7 @@ def add():
             nt = get_table(cfg, None)
             nt.to_csv(temp / cfg['diffusion']['inpaint'], index=False)
             nt.to_csv(temp / cfg['diffusion']['contig'], index=False)
+            nt.to_csv(temp / cfg['mpnn']['fixed'], index=False)
         if pdb is not None:
             cfg['diffusion']['protein'] = pdb.name
             with open(temp / pdb.name, 'wb') as f:
@@ -85,6 +87,7 @@ if __name__ == '__main__':
                     c = {'name': c['name'], **c['diffusion'], **c['fold'], **c['mpnn']}
                     c['contig'] = convert_selection(get_table(t, 'contig'))
                     c['inpaint'] = convert_selection(get_table(t, 'inpaint'))
+                    c['fixed'] = convert_selection(get_table(t, 'fixed'))
                     df.append(pd.DataFrame([c]))
                 df = pd.concat(df, ignore_index=True)
                 df.set_index('name', inplace=True)
