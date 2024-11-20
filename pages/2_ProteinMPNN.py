@@ -5,12 +5,12 @@ from utils import *
 
 def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix):
     if not isinstance(fixed, pd.DataFrame):
-        fixed = pd.DataFrame(fixed)
+        fixed = pd.read_csv(wkdir / fixed, usecols=['chain', 'min_len', 'max_len'])
     to_fix = []
     for c in chains:
         temp = set()
         for ind, row in fixed[fixed['chain'] == c].iterrows():
-            temp |= [str(k) for k in range(row['min_len'], row['max_len']+1)]
+            temp |= set([str(k) for k in range(row['min_len'], row['max_len']+1)])
         to_fix.append(' '.join(sorted(temp)))
     to_fix = ','.join(to_fix)
     chains = ' '.join(chains)
@@ -48,9 +48,9 @@ if __name__ == '__main__':
             with st.form(key='mpnn'):
                 n_sample = st.number_input('Number of samples', 1, None, config['n_sample'])
                 temperature = st.number_input('Temperature', 0., 1., config['temperature'])
-                invert_fix = st.checkbox('Invert fixed positions', config['invert_fix'])
                 st.subheader('Fixed Positions')
-                table_edit(get_table(active_trial, 'fixed'), None, 'fixed_1')
+                table_edit(get_table(active_trial, 'mpnn', 'fixed'), None, 'fixed_1')
+                invert_fix = st.checkbox('Invert fixed positions', config['invert_fix'])
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True)
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
@@ -58,7 +58,7 @@ if __name__ == '__main__':
                 config['n_sample'] = n_sample
                 config['temperature'] = temperature
                 config['invert_fix'] = invert_fix
-                st.session_state['fixed_1'].to_csv(active_trial.parent / config['contig'], index=False)
+                st.session_state['fixed_1'].to_csv(active_trial.parent / config['fixed'], index=False)
                 c = get_config(active_trial)
                 c['mpnn'] = config
                 put_config(c, active_trial)

@@ -27,7 +27,7 @@ def add():
             assert pdb is not None, 'You must have a protein for one trial.'
             with open('default.json', 'r') as f:
                 cfg = json.load(f)
-            nt = get_table(cfg, None)
+            nt = pd.DataFrame(columns=['chain', 'min_len', 'max_len'])
             nt.to_csv(temp / cfg['diffusion']['inpaint'], index=False)
             nt.to_csv(temp / cfg['diffusion']['contig'], index=False)
             nt.to_csv(temp / cfg['mpnn']['fixed'], index=False)
@@ -85,9 +85,9 @@ if __name__ == '__main__':
                 for t in trials:
                     c = get_config(t)
                     c = {'name': c['name'], **c['diffusion'], **c['fold'], **c['mpnn']}
-                    c['contig'] = convert_selection(get_table(t, 'contig'))
-                    c['inpaint'] = convert_selection(get_table(t, 'inpaint'))
-                    c['fixed'] = convert_selection(get_table(t, 'fixed'))
+                    c['contig'] = convert_selection(get_table(t, 'diffusion', 'contig'))
+                    c['inpaint'] = convert_selection(get_table(t, 'diffusion', 'inpaint'))
+                    c['fixed'] = convert_selection(get_table(t, 'mpnn', 'fixed'))
                     df.append(pd.DataFrame([c]))
                 df = pd.concat(df, ignore_index=True)
                 df.set_index('name', inplace=True)

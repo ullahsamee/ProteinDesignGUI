@@ -5,9 +5,9 @@ from utils import *
 
 def get_cmd(wkdir, contig, inpaint, n_design, n_timestamp, protein):
     if not isinstance(contig, pd.DataFrame):
-        contig = pd.read_csv(wkdir / contig)
+        contig = pd.read_csv(wkdir / contig, usecols=['chain', 'min_len', 'max_len'])
     if not isinstance(inpaint, pd.DataFrame):
-        inpaint = pd.read_csv(wkdir / inpaint)
+        inpaint = pd.read_csv(wkdir / inpaint, usecols=['chain', 'min_len', 'max_len'])
     cmd = f"""
     cd {wkdir}
     {exe} inference.output_prefix={prefix} inference.input_pdb={protein} \
@@ -42,9 +42,9 @@ if __name__ == '__main__':
                 n_timestamp = col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d')
                 pdb = active_trial.parent / config['protein']
                 st.subheader('Contigs Setting')
-                table_edit(get_table(active_trial, 'contig'), pdb, 'contig_1')
+                table_edit(get_table(active_trial, 'diffusion', 'contig'), pdb, 'contig_1')
                 st.subheader('Inpaint Setting')
-                table_edit(get_table(active_trial, 'inpaint'), pdb, 'inpaint_1')
+                table_edit(get_table(active_trial, 'diffusion', 'inpaint'), pdb, 'inpaint_1')
                 col1, col2 = st.columns(2)
                 clicked1 = col1.button('Save', use_container_width=True)
                 clicked2 = col2.button('Run', use_container_width=True, type='primary')

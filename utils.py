@@ -22,14 +22,6 @@ def convert_selection(df):
     return sel
 
 
-def get_table(path, key=None):
-    if key is None:
-        return pd.DataFrame(columns=['chain', 'min_len', 'max_len'])
-    config = get_config(path)
-    p = Path(path).parent / config['diffusion'][key]
-    return pd.read_csv(p)
-
-
 def init():
     if 'trials' not in st.session_state:
         st.session_state['trials'] = []
@@ -60,6 +52,11 @@ def post_process_mpnn(path):
         text = '>' + '>'.join(f.read().split('>')[2:]).replace('/', ':')
     with open(path.with_suffix('.fasta'), 'w') as f:
         f.write(text)
+
+
+def get_table(path, key1, key2):
+    cfg = get_config(path)
+    return pd.read_csv(path.parent / cfg[key1][key2], usecols=['chain', 'min_len', 'max_len'])
 
 
 @st.fragment
