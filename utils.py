@@ -58,9 +58,18 @@ def put_config(c, path):
         f.write(yaml.dump(c))
 
 
-def post_process_mpnn(path):
+def get_score(seq):
+    f1 = seq.find(' score=') + 7
+    f2 = seq.find(',', f1)
+    return float(seq[f1:f2])
+
+
+def post_process_mpnn(path, topN):
     with open(path, 'r') as f:
-        text = '>' + '>'.join(f.read().split('>')[2:]).replace('/', ':')
+        seqs = f.read().split('>')[2:]
+        scores = [get_score(s) for s in seqs]
+        seqs = [seqs[i] for i in np.argsort(scores)[:min(len(seqs), topN)]]
+        text = '>' + '>'.join(seqs).replace('/', ':')
     with open(path.with_suffix('.fasta'), 'w') as f:
         f.write(text)
 

@@ -47,6 +47,7 @@ if __name__ == '__main__':
             config = get_config(active_trial)['mpnn']
             with st.form(key='mpnn'):
                 n_sample = st.number_input('Number of samples', 1, None, config['n_sample'])
+                top_n = st.number_input('Top N', 1, None, config['top_n'])
                 temperature = st.number_input('Temperature', 0., 1., config['temperature'])
                 st.subheader('Fixed Positions')
                 table_edit(get_table(active_trial, 'mpnn', 'fixed'), None, 'fixed_1')
@@ -56,6 +57,7 @@ if __name__ == '__main__':
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
             if clicked1:
                 config['n_sample'] = n_sample
+                config['top_n'] = top_n
                 config['temperature'] = temperature
                 config['invert_fix'] = invert_fix
                 st.session_state['fixed_1'].to_csv(active_trial.parent / config['fixed'], index=False)
@@ -81,7 +83,7 @@ if __name__ == '__main__':
                             st.warning('Process busy!', icon="🚨")
                         progress()
                         for i in (wkdir / 'seqs').glob('*.fa'):
-                            post_process_mpnn(i)
+                            post_process_mpnn(i, top_n)
                         if st.session_state['process'].returncode == 0:
                             st.success('Trial running complete!', icon="✅")
                         else:
@@ -113,7 +115,7 @@ if __name__ == '__main__':
                         if i == st.session_state['batch_progress']:
                             progress()
                             for j in (wkdir / 'seqs').glob('*.fa'):
-                                post_process_mpnn(j)
+                                post_process_mpnn(j, cfg['mpnn']['top_n'])
                     except Exception as e:
                         st.session_state['process'].terminate()
                         st.write(e)
