@@ -26,6 +26,7 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
 
 
 if __name__ == '__main__':
+    st.set_page_config('Protein Design: Local ColabFold')
 
     init()
     trials = st.session_state['trials']
@@ -34,7 +35,6 @@ if __name__ == '__main__':
     with open('config.yml') as f:
         config = yaml.safe_load(f)
         exe = f"{config['PATH']['ColabFold']}/colabfold-conda/bin/colabfold_batch"
-    st.set_page_config('Protein Design: Local ColabFold')
     st.title('Local ColabFold')
     tab1, tab2, tab3 = st.tabs(['Configure', 'Visualize', 'Batch'])
 
@@ -60,23 +60,31 @@ if __name__ == '__main__':
                 put_config(c, active_trial)
                 st.success('Configuration saved!', icon="✅")
             if clicked2:
-                try:
-                    if st.session_state['process'] is None:
-                        wkdir = active_trial.parent
-                        shutil.rmtree(wkdir / prefix, ignore_errors=True)
-                        cmd = get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template)
-                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        nfiles = len([*wkdir.glob('seqs/*.fasta')])
-                        st.session_state['process_args'] = n_mod * nfiles, 'Running prediction for single trial..', wkdir, prefix
-                    progress()
-                    st.success('Trial running complete!', icon="✅")
-                except Exception as e:
-                    st.session_state['process'].terminate()
-                    st.write(e)
-                finally:
-                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
+                if st.session_state['batch_progress'] >= 0 or st.session_state['progress_type'] not in 'fold':
+                    st.warning('Process busy!', icon="🚨")
+                else:
+                    try:
+                        st.session_state['progress_type'] = 'fold'
+                        if st.session_state['process'] is None:
+                            wkdir = active_trial.parent
+                            shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                            cmd = get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template)
+                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            nfiles = len([*wkdir.glob('seqs/*.fasta')])
+                            st.session_state['process_args'] = n_mod * nfiles, 'Running prediction for single trial..', wkdir, prefix
+                        else:
+                            st.warning('Process busy!', icon="🚨")
+                        progress()
+                        if st.session_state['process'].returncode == 0:
+                            st.success('Trial running complete!', icon="✅")
+                        else:
+                            st.error('Trial terminated.', icon="⛔")
+                    except Exception as e:
+                        st.session_state['process'].terminate()
+                        st.write(e)
+                    finally:
+                        st.session_state['progress_type'] = ''
                         st.session_state['process'] = None
-
     with tab2:
         if active_trial is not None:
             results = sorted(active_trial.parent.rglob(f'{prefix}*.pdb'))
@@ -87,25 +95,33 @@ if __name__ == '__main__':
 
     with tab3:
         if st.button('Batch Run', use_container_width=True, type='primary'):
-            for i, path in enumerate(trials):
-                try:
-                    if st.session_state['process'] is None:
-                        wkdir = path.parent
-                        shutil.rmtree(wkdir / prefix, ignore_errors=True)
-                        cfg = get_config(path)['fold']
-                        cmd = get_cmd(wkdir, **cfg)
-                        nfiles = len([*wkdir.glob('seqs/*.fasta')])
-                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        st.session_state['process_args'] = cfg['n_mod'] * nfiles, f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
-                        st.session_state['batch_progress'] = i
-                    if i == st.session_state['batch_progress']:
-                        progress()
-                except Exception as e:
-                    st.session_state['process'].terminate()
-                    st.write(e)
-                finally:
-                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
-                        st.session_state['process'] = None
-                    st.session_state['batch_progress'] = None
-            st.success(f'Batch running complete!', icon="✅")
+            if process_ongoing() and st.session_state['batch_progress'] < 0 or st.session_state['progress_type'] not in 'fold':
+                st.warning('Process busy!', icon="🚨")
+            else:
+                st.session_state['progress_type'] = 'fold'
+                for i, path in enumerate(trials):
+                    try:
+                        if process_ongoing() and st.session_state['batch_progress'] < i:
+                            wkdir = path.parent
+                            shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                            cfg = get_config(path)['fold']
+                            cmd = get_cmd(wkdir, **cfg)
+                            nfiles = len([*wkdir.glob('seqs/*.fasta')])
+                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            st.session_state['process_args'] = cfg['n_mod'] * nfiles, f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
+                            st.session_state['batch_progress'] = i
+                        if i == st.session_state['batch_progress']:
+                            progress()
+                    except Exception as e:
+                        st.session_state['process'].terminate()
+                        st.write(e)
+                    finally:
+                        if not process_ongoing():
+                            st.session_state['process'] = None
+                if np.isinf(st.session_state['batch_progress']):
+                    st.error('Process terminated', icon="⛔")
+                else:
+                    st.success(f'Batch running complete!', icon="✅")
+                st.session_state['progress_type'] = ''
+                st.session_state['batch_progress'] = -1
 

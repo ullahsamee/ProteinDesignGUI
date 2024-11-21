@@ -4,6 +4,7 @@ from pathlib import Path
 import yaml
 from streamlit_molstar import st_molstar_content
 import time
+import numpy as np
 
 
 def convert_selection(df):
@@ -22,6 +23,13 @@ def convert_selection(df):
     return sel
 
 
+def stop_proc():
+    if st.session_state['process'] is not None:
+        st.session_state['process'].terminate()
+        if st.session_state['batch_progress'] >= 0:
+            st.session_state['batch_progress'] = np.inf
+
+
 def init():
     if 'trials' not in st.session_state:
         st.session_state['trials'] = []
@@ -30,7 +38,10 @@ def init():
     if 'process' not in st.session_state:
         st.session_state['process'] = None
     if 'batch_progress' not in st.session_state:
-        st.session_state['batch_progress'] = None
+        st.session_state['batch_progress'] = -1
+    if 'process_type' not in st.session_state:
+        st.session_state['process_type'] = ''
+    st.sidebar.button('Stop Process', on_click=stop_proc, type='primary', use_container_width=True)
 
 
 def validate_dir(d):
@@ -103,3 +114,7 @@ def table_edit(data, pdb, key):
     )
     st.session_state[key] = table
     st.markdown(f'The specified sequence map: `{convert_selection(st.session_state[key])}`')
+
+
+def process_ongoing():
+    return st.session_state['process'] is not None and st.session_state['process'].poll() is None

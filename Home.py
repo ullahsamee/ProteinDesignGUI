@@ -56,12 +56,11 @@ def delete():
 
 
 if __name__ == '__main__':
-
-    init()
-
     st.set_page_config(
         page_title="Protein Design",
     )
+
+    init()
 
     st.title("Protein Design Applet")
 

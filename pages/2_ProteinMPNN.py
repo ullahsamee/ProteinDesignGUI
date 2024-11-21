@@ -26,6 +26,7 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix):
 
 
 if __name__ == '__main__':
+    st.set_page_config('Protein Design: ProteinMPNN')
 
     init()
     trials = st.session_state['trials']
@@ -37,7 +38,6 @@ if __name__ == '__main__':
         exe_parse = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/parse_multiple_chains.py"
         exe_assign = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
         exe_fix = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
-    st.set_page_config('Protein Design: ProteinMPNN')
     st.title('ProteinMPNN')
     tab1, tab2 = st.tabs(['Configure', 'Batch'])
 
@@ -64,51 +64,65 @@ if __name__ == '__main__':
                 put_config(c, active_trial)
                 st.success('Configuration saved!', icon="✅")
             if clicked2:
-                try:
-                    if st.session_state['process'] is None:
-                        wkdir = active_trial.parent
-                        shutil.rmtree(wkdir / 'seq', ignore_errors=True)
-                        files = [*wkdir.glob(f'{indir}*.pdb')]
-                        chains = extract_chains(files[0])
-                        cmd = get_cmd(wkdir, chains, n_sample, temperature, st.session_state['fixed_1'], invert_fix)
-                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        st.session_state['process_args'] = len(files), f'Predicting sequences..', wkdir, 'seq/'
-                    else:
-                        st.warning('Process busy!')
-                    progress()
-                    for i in (wkdir / 'seqs').glob('*.fa'):
-                        post_process_mpnn(i)
-                    st.success('Trial running complete!', icon="✅")
-                except Exception as e:
-                    st.session_state['process'].terminate()
-                    st.write(e)
-                finally:
-                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
+                if st.session_state['batch_progress'] >= 0 or st.session_state['progress_type'] not in 'mpnn':
+                    st.warning('Process busy!', icon="🚨")
+                else:
+                    try:
+                        st.session_state['progress_type'] = 'mpnn'
+                        if st.session_state['process'] is None:
+                            wkdir = active_trial.parent
+                            shutil.rmtree(wkdir / 'seq', ignore_errors=True)
+                            files = [*wkdir.glob(f'{indir}*.pdb')]
+                            chains = extract_chains(files[0])
+                            cmd = get_cmd(wkdir, chains, n_sample, temperature, st.session_state['fixed_1'], invert_fix)
+                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            st.session_state['process_args'] = len(files), f'Predicting sequences..', wkdir, 'seq/'
+                        else:
+                            st.warning('Process busy!', icon="🚨")
+                        progress()
+                        for i in (wkdir / 'seqs').glob('*.fa'):
+                            post_process_mpnn(i)
+                        if st.session_state['process'].returncode == 0:
+                            st.success('Trial running complete!', icon="✅")
+                        else:
+                            st.error('Trial terminated.', icon="⛔")
+                    except Exception as e:
+                        st.session_state['process'].terminate()
+                        st.write(e)
+                    finally:
+                        st.session_state['progress_type'] = ''
                         st.session_state['process'] = None
     with tab2:
         if st.button('Batch Run', use_container_width=True, type='primary'):
-            for i, path in enumerate(trials):
-                try:
-                    if st.session_state['process'] is None and st.session_state['batch_progress'] is None or st.session_state['batch_progress'] < i:
-                        wkdir = path.parent
-                        shutil.rmtree(wkdir / 'seq', ignore_errors=True)
-                        cfg = get_config(path)
-                        files = [*wkdir.glob(f'{indir}*.pdb')]
-                        chains = extract_chains(files[0])
-                        cmd = get_cmd(wkdir, chains, **cfg['mpnn'])
-                        st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                        st.session_state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]} ({i}/{len(trials)})', wkdir, 'seq/'
-                        st.session_state['batch_progress'] = i
-                    if st.session_state['batch_progress'] is not None and i == st.session_state['batch_progress']:
-                        progress()
-                        for j in (wkdir / 'seqs').glob('*.fa'):
-                            post_process_mpnn(j)
-                except Exception as e:
-                    st.session_state['process'].terminate()
-                    st.write(e)
-                finally:
-                    if st.session_state['process'] is not None and st.session_state['process'].poll() is not None:
-                        st.session_state['process'] = None
-            st.session_state['batch_progress'] = None
-            st.success(f'Batch running complete!', icon="✅")
-
+            if process_ongoing() and st.session_state['batch_progress'] < 0 or st.session_state['progress_type'] not in 'mpnn':
+                st.warning('Process busy!', icon="🚨")
+            else:
+                st.session_state['progress_type'] = 'mpnn'
+                for i, path in enumerate(trials):
+                    try:
+                        if process_ongoing() and st.session_state['batch_progress'] < i:
+                            wkdir = path.parent
+                            shutil.rmtree(wkdir / 'seq', ignore_errors=True)
+                            cfg = get_config(path)
+                            files = [*wkdir.glob(f'{indir}*.pdb')]
+                            chains = extract_chains(files[0])
+                            cmd = get_cmd(wkdir, chains, **cfg['mpnn'])
+                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            st.session_state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]} ({i}/{len(trials)})', wkdir, 'seq/'
+                            st.session_state['batch_progress'] = i
+                        if i == st.session_state['batch_progress']:
+                            progress()
+                            for j in (wkdir / 'seqs').glob('*.fa'):
+                                post_process_mpnn(j)
+                    except Exception as e:
+                        st.session_state['process'].terminate()
+                        st.write(e)
+                    finally:
+                        if not process_ongoing():
+                            st.session_state['process'] = None
+                if np.isinf(st.session_state['batch_progress']):
+                    st.error('Process terminated', icon="⛔")
+                else:
+                    st.success(f'Batch running complete!', icon="✅")
+                st.session_state['progress_type'] = ''
+                st.session_state['batch_progress'] = -1
