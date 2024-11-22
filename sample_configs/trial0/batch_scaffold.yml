@@ -1,6 +1,19 @@
 diffusion:
-  contig: contig.csv
-  inpaint: inpaint.csv
+  config:
+    chain:
+    - A
+    max_len:
+    - 3
+    min_len:
+    - 1
+  contig:
+    chain: []
+    max_len: []
+    min_len: []
+  inpaint:
+    chain: []
+    max_len: []
+    min_len: []
   n_design: 3
   n_timestamp: 15
   protein: 5TPN.pdb
@@ -10,6 +23,12 @@ fold:
   use_amber: false
   use_template: false
 mpnn:
+  fixed:
+    chain: []
+    max_len: []
+    min_len: []
+  invert_fix: false
   n_sample: 2
   temperature: 0.1
+  top_n: 2
 name: test-0

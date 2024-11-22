@@ -8,6 +8,8 @@ import numpy as np
 
 
 def convert_selection(df):
+    if not isinstance(df, pd.DataFrame):
+        df = pd.DataFrame(df)
     sel = '['
     for ind, row in df.iterrows():
         a = int(row['min_len'])
@@ -41,6 +43,11 @@ def init():
         st.session_state['batch_progress'] = -1
     if 'process_type' not in st.session_state:
         st.session_state['process_type'] = ''
+
+    st.sidebar.subheader('Batch Automation')
+    st.sidebar.toggle('Proceed after RFDiffusion', key='toggle1')
+    st.sidebar.toggle('Proceed after ProteinMPNN', key='toggle2')
+    st.sidebar.button('Batch Run', on_click=stop_proc, use_container_width=True)
     st.sidebar.button('Stop Process', on_click=stop_proc, type='primary', use_container_width=True)
 
 
@@ -72,11 +79,6 @@ def post_process_mpnn(path, topN):
         text = '>' + '>'.join(seqs).replace('/', ':')
     with open(path.with_suffix('.fasta'), 'w') as f:
         f.write(text)
-
-
-def get_table(path, key1, key2):
-    cfg = get_config(path)
-    return pd.read_csv(path.parent / cfg[key1][key2], usecols=['chain', 'min_len', 'max_len'])
 
 
 @st.fragment
@@ -113,15 +115,14 @@ def extract_chains(pdb):
 @st.fragment
 def table_edit(data, pdb, key):
     ops = extract_chains(pdb) if pdb is not None else [*(chr(i) for i in range(ord('A'), ord('Z') + 1))]
-    table = st.data_editor(
-        data, column_order=None, num_rows='dynamic', use_container_width=True, key=f'{key}.data',
+    st.session_state[key] = st.data_editor(
+        pd.DataFrame(data, dtype=str), column_order=['chain', 'min_len', 'max_len'], num_rows='dynamic', use_container_width=True, key=f'{key}.data',
         column_config={
             'chain': st.column_config.SelectboxColumn('Chain', options=ops, required=pdb is None),
             'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
             'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
         }
     )
-    st.session_state[key] = table
     st.markdown(f'The specified sequence map: `{convert_selection(st.session_state[key])}`')
 
 

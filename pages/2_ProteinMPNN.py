@@ -5,7 +5,7 @@ from utils import *
 
 def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix):
     if not isinstance(fixed, pd.DataFrame):
-        fixed = pd.read_csv(wkdir / fixed, usecols=['chain', 'min_len', 'max_len'])
+        fixed = pd.DataFrame(fixed, dtype=str)
     to_fix = []
     for c in chains:
         temp = set()
@@ -50,7 +50,7 @@ if __name__ == '__main__':
                 top_n = st.number_input('Top N', 1, None, config['top_n'])
                 temperature = st.number_input('Temperature', 0., 1., config['temperature'])
                 st.subheader('Fixed Positions')
-                table_edit(get_table(active_trial, 'mpnn', 'fixed'), None, 'fixed_1')
+                table_edit(config['fixed'], None, 'fixed_table')
                 invert_fix = st.checkbox('Invert fixed positions', config['invert_fix'])
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True)
@@ -60,7 +60,7 @@ if __name__ == '__main__':
                 config['top_n'] = top_n
                 config['temperature'] = temperature
                 config['invert_fix'] = invert_fix
-                st.session_state['fixed_1'].to_csv(active_trial.parent / config['fixed'], index=False)
+                config['fixed'] = st.session_state['fixed_table'].to_dict('list')
                 c = get_config(active_trial)
                 c['mpnn'] = config
                 put_config(c, active_trial)
@@ -76,7 +76,7 @@ if __name__ == '__main__':
                             shutil.rmtree(wkdir / 'seq', ignore_errors=True)
                             files = [*wkdir.glob(f'{indir}*.pdb')]
                             chains = extract_chains(files[0])
-                            cmd = get_cmd(wkdir, chains, n_sample, temperature, st.session_state['fixed_1'], invert_fix)
+                            cmd = get_cmd(wkdir, chains, n_sample, temperature, st.session_state['fixed_table'], invert_fix)
                             st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
                             st.session_state['process_args'] = len(files), f'Predicting sequences..', wkdir, 'seq/'
                         else:

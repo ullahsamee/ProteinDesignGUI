@@ -2,8 +2,16 @@
   "diffusion": {
     "n_design": 100,
     "n_timestamp": 50,
-    "contig": "contig.csv",
-    "inpaint": "inpaint.csv"
+    "contig": {
+      "chain": [],
+      "min_len": [],
+      "max_len": []
+    },
+    "inpaint": {
+      "chain": [],
+      "min_len": [],
+      "max_len": []
+    }
   },
   "fold": {
     "use_amber": true,
@@ -14,8 +22,12 @@
   "mpnn": {
     "n_sample": 2,
     "temperature": 0.1,
-    "fixed": "fixed.csv",
     "invert_fix": false,
-    "top_n": 2
+    "top_n": 2,
+    "fixed": {
+      "chain": [],
+      "min_len": [],
+      "max_len": []
+    }
   }
 }

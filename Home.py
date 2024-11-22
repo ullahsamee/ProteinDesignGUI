@@ -1,5 +1,8 @@
 import shutil
 import json
+
+import pandas as pd
+
 from utils import *
 
 
@@ -18,19 +21,11 @@ def add():
         temp.mkdir(exist_ok=True)
         if template is not None:
             cfg = get_config(template)
-            p = Path(template).parent
-            shutil.copy(p / cfg['diffusion']['protein'], temp)
-            shutil.copy(p / cfg['diffusion']['contig'], temp)
-            shutil.copy(p / cfg['diffusion']['inpaint'], temp)
-            shutil.copy(p / cfg['mpnn']['fixed'], temp)
+            shutil.copy(Path(template).parent / cfg['diffusion']['protein'], temp)
         else:
             assert pdb is not None, 'You must have a protein for one trial.'
             with open('default.json', 'r') as f:
                 cfg = json.load(f)
-            nt = pd.DataFrame(columns=['chain', 'min_len', 'max_len'])
-            nt.to_csv(temp / cfg['diffusion']['inpaint'], index=False)
-            nt.to_csv(temp / cfg['diffusion']['contig'], index=False)
-            nt.to_csv(temp / cfg['mpnn']['fixed'], index=False)
         if pdb is not None:
             cfg['diffusion']['protein'] = pdb.name
             with open(temp / pdb.name, 'wb') as f:
@@ -84,9 +79,9 @@ if __name__ == '__main__':
                 for t in trials:
                     c = get_config(t)
                     c = {'name': c['name'], **c['diffusion'], **c['fold'], **c['mpnn']}
-                    c['contig'] = convert_selection(get_table(t, 'diffusion', 'contig'))
-                    c['inpaint'] = convert_selection(get_table(t, 'diffusion', 'inpaint'))
-                    c['fixed'] = convert_selection(get_table(t, 'mpnn', 'fixed'))
+                    c['contig'] = convert_selection(c['contig'])
+                    c['inpaint'] = convert_selection(c['inpaint'])
+                    c['fixed'] = convert_selection(c['fixed'])
                     df.append(pd.DataFrame([c]))
                 df = pd.concat(df, ignore_index=True)
                 df.set_index('name', inplace=True)

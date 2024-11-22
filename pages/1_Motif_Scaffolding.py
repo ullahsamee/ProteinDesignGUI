@@ -5,9 +5,9 @@ from utils import *
 
 def get_cmd(wkdir, contig, inpaint, n_design, n_timestamp, protein):
     if not isinstance(contig, pd.DataFrame):
-        contig = pd.read_csv(wkdir / contig, usecols=['chain', 'min_len', 'max_len'])
+        contig = pd.DataFrame(contig, dtype=str)
     if not isinstance(inpaint, pd.DataFrame):
-        inpaint = pd.read_csv(wkdir / inpaint, usecols=['chain', 'min_len', 'max_len'])
+        inpaint = pd.DataFrame(inpaint, dtype=str)
     cmd = f"""
     cd {wkdir}
     {exe} inference.output_prefix={prefix} inference.input_pdb={protein} \
@@ -42,17 +42,17 @@ if __name__ == '__main__':
                 n_timestamp = col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d')
                 pdb = active_trial.parent / config['protein']
                 st.subheader('Contigs Setting')
-                table_edit(get_table(active_trial, 'diffusion', 'contig'), pdb, 'contig_1')
+                table_edit(config['contig'], pdb, 'contig_table')
                 st.subheader('Inpaint Setting')
-                table_edit(get_table(active_trial, 'diffusion', 'inpaint'), pdb, 'inpaint_1')
+                table_edit(config['inpaint'], pdb, 'inpaint_table')
                 col1, col2 = st.columns(2)
                 clicked1 = col1.button('Save', use_container_width=True)
                 clicked2 = col2.button('Run', use_container_width=True, type='primary')
             if clicked1:
                 config['n_design'] = n_design
                 config['n_timestamp'] = n_timestamp
-                st.session_state['contig_1'].to_csv(active_trial.parent / config['contig'], index=False)
-                st.session_state['inpaint_1'].to_csv(active_trial.parent / config['inpaint'], index=False)
+                config['config'] = st.session_state['contig_table'].to_dict('list')
+                config['inpaint'] = st.session_state['inpaint_table'].to_dict('list')
                 c = get_config(active_trial)
                 c['diffusion'] = config
                 put_config(c, active_trial)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                         if st.session_state['process'] is None:
                             wkdir = active_trial.parent
                             shutil.rmtree(wkdir / outdir, ignore_errors=True)
-                            cmd = get_cmd(wkdir, st.session_state['contig_1'], st.session_state['inpaint_1'],
+                            cmd = get_cmd(wkdir, st.session_state['contig_table'], st.session_state['inpaint_table'],
                                           n_design, n_timestamp, config['protein'])
                             st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
                             st.session_state['process_args'] = n_design, 'Running inference for single trial..', wkdir, prefix
