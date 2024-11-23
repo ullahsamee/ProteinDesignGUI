@@ -53,6 +53,7 @@ def init():
 
     def select_batch():
         st.session_state['current_batch']()
+
     st.sidebar.button('Batch Run', on_click=select_batch, use_container_width=True,
                       disabled=state['current_batch'] is None)
     st.sidebar.subheader('Batch Automation')

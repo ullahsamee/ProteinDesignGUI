@@ -81,6 +81,10 @@ def batch():
         state['progress_type'] = ''
         state['batch_progress'] = -1
 
+        if state['proceed1']:
+            state['progress_type'] = 'continue'
+            st.switch_page('pages/2_ProteinMPNN.py')
+
 
 if __name__ == '__main__':
     st.set_page_config('Protein Design: Motif Scaffolding')
@@ -122,4 +126,3 @@ if __name__ == '__main__':
             else:
                 st.warning('No results found.')
     placeholder = st.empty()
-

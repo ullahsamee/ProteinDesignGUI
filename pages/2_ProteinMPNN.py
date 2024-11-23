@@ -100,6 +100,10 @@ def batch():
             state['progress_type'] = ''
             state['batch_progress'] = -1
 
+        if state['proceed2']:
+            state['progress_type'] = 'continue'
+            st.switch_page('pages/3_Local_ColabFold.py')
+
 
 if __name__ == '__main__':
     st.set_page_config('Protein Design: ProteinMPNN')
@@ -134,3 +138,6 @@ if __name__ == '__main__':
                 clicked1 = col1.form_submit_button('Save', use_container_width=True, on_click=save)
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary', on_click=run)
     placeholder = st.empty()
+
+    if state['progress_type'] == 'continue':
+        batch()
