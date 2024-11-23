@@ -1,13 +1,9 @@
-import subprocess
-import shutil
-from utils import *
+from common import *
+
+state = st.session_state
 
 
-def get_cmd(wkdir, contig, inpaint, n_design, n_timestamp, protein):
-    if not isinstance(contig, pd.DataFrame):
-        contig = pd.DataFrame(contig, dtype=str)
-    if not isinstance(inpaint, pd.DataFrame):
-        inpaint = pd.DataFrame(inpaint, dtype=str)
+def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp):
     cmd = f"""
     cd {wkdir}
     {exe} inference.output_prefix={prefix} inference.input_pdb={protein} \
@@ -18,71 +14,106 @@ def get_cmd(wkdir, contig, inpaint, n_design, n_timestamp, protein):
     return cmd
 
 
+def sync():
+    config['n_design'] = state['n_design']
+    config['n_timestamp'] = state['n_timestamp']
+    config['contig'] = state['contig'].to_dict('list')
+    config['inpaint'] = state['inpaint'].to_dict('list')
+
+
+def save():
+    sync()
+    c = get_config(active_trial)
+    c['diffusion'] = config
+    put_config(c, active_trial)
+    st.toast('Configuration saved!', icon="✅")
+
+
+def run():
+    sync()
+    if state['batch_progress'] >= 0 or state['progress_type'] not in 'diffusion':
+        st.toast('Process busy!', icon="🚨")
+    else:
+        try:
+            state['progress_type'] = 'diffusion'
+            if state['process'] is None:
+                wkdir = active_trial.parent
+                shutil.rmtree(wkdir / outdir, ignore_errors=True)
+                cmd = get_cmd(wkdir, **config)
+                state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                state['process_args'] = state['n_design'], 'Running inference for single trial..', wkdir, prefix
+            else:
+                st.toast('Process busy!', icon="🚨")
+            progress(placeholder)
+            signify_complete(placeholder)
+        except Exception as e:
+            state['process'].terminate()
+            st.write(e)
+        finally:
+            state['progress_type'] = ''
+            state['process'] = None
+
+
+def batch():
+    if process_ongoing() and state['batch_progress'] < 0 or state['progress_type'] not in 'diffusion':
+        st.toast('Process busy!', icon="🚨")
+    else:
+        state['progress_type'] = 'diffusion'
+        for i, path in enumerate(trials):
+            try:
+                if not process_ongoing() and state['batch_progress'] < i:
+                    wkdir = path.parent
+                    shutil.rmtree(wkdir / outdir, ignore_errors=True)
+                    cfg = get_config(path)
+                    cmd = get_cmd(wkdir, **cfg['diffusion'])
+                    state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                    state['process_args'] = cfg['diffusion']['n_design'], f'Running inference for {cfg["name"]} ({i}/{len(trials)})', wkdir, prefix
+                    state['batch_progress'] = i
+                if i == state['batch_progress']:
+                    progress(side_placeholder)
+            except Exception as e:
+                state['process'].terminate()
+                st.write(e)
+            finally:
+                if not process_ongoing():
+                    state['process'] = None
+        signify_batch_complete(side_placeholder)
+        state['progress_type'] = ''
+        state['batch_progress'] = -1
+
+
 if __name__ == '__main__':
     st.set_page_config('Protein Design: Motif Scaffolding')
 
-    init()
-    trials = st.session_state['trials']
+    trials = state['trials']
+    state['current_batch'] = batch
     outdir = 'diffusion'
     prefix = outdir + '/design'
+
+    side_placeholder = init()
 
     with open('config.yml') as f:
         config = yaml.safe_load(f)
         exe = f"python {config['PATH']['RFdiffusion']}/scripts/run_inference.py"
     st.title('Motif Scaffolding')
-    tab1, tab2, tab3 = st.tabs(['Configure', 'Visualize', 'Batch'])
+    tab1, tab2 = st.tabs(['Configure', 'Visualize'])
 
     with tab1:
         active_trial = st.selectbox("Select a trial", trials)
         if active_trial is not None:
             config = get_config(active_trial)['diffusion']
-            with st.container(border=True):
+            with st.form('diffusion_form'):
                 col1, col2 = st.columns(2)
-                n_design = col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d')
-                n_timestamp = col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d')
+                col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d', key='n_design')
+                col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d', key='n_timestamp')
                 pdb = active_trial.parent / config['protein']
                 st.subheader('Contigs Setting')
-                table_edit(config['contig'], pdb, 'contig_table')
+                table_edit(config['contig'], pdb, key='contig')
                 st.subheader('Inpaint Setting')
-                table_edit(config['inpaint'], pdb, 'inpaint_table')
+                table_edit(config['inpaint'], pdb, key='inpaint')
                 col1, col2 = st.columns(2)
-                clicked1 = col1.button('Save', use_container_width=True)
-                clicked2 = col2.button('Run', use_container_width=True, type='primary')
-            if clicked1:
-                config['n_design'] = n_design
-                config['n_timestamp'] = n_timestamp
-                config['config'] = st.session_state['contig_table'].to_dict('list')
-                config['inpaint'] = st.session_state['inpaint_table'].to_dict('list')
-                c = get_config(active_trial)
-                c['diffusion'] = config
-                put_config(c, active_trial)
-                st.success('Configuration saved!', icon="✅")
-            if clicked2:
-                if st.session_state['batch_progress'] >= 0 or st.session_state['progress_type'] not in 'diffusion':
-                    st.warning('Process busy!', icon="🚨")
-                else:
-                    try:
-                        st.session_state['progress_type'] = 'diffusion'
-                        if st.session_state['process'] is None:
-                            wkdir = active_trial.parent
-                            shutil.rmtree(wkdir / outdir, ignore_errors=True)
-                            cmd = get_cmd(wkdir, st.session_state['contig_table'], st.session_state['inpaint_table'],
-                                          n_design, n_timestamp, config['protein'])
-                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                            st.session_state['process_args'] = n_design, 'Running inference for single trial..', wkdir, prefix
-                        else:
-                            st.warning('Process busy!', icon="🚨")
-                        progress()
-                        if st.session_state['process'].returncode == 0:
-                            st.success('Trial running complete!', icon="✅")
-                        else:
-                            st.error('Trial terminated.', icon="⛔")
-                    except Exception as e:
-                        st.session_state['process'].terminate()
-                        st.write(e)
-                    finally:
-                        st.session_state['progress_type'] = ''
-                        st.session_state['process'] = None
+                clicked1 = col1.form_submit_button('Save', use_container_width=True, on_click=save)
+                clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary', on_click=run)
     with tab2:
         if active_trial is not None:
             results = sorted(active_trial.parent.glob(f'{prefix}*.pdb'))
@@ -90,34 +121,5 @@ if __name__ == '__main__':
                 visual(results)
             else:
                 st.warning('No results found.')
+    placeholder = st.empty()
 
-    with tab3:
-        if st.button('Batch Run', use_container_width=True, type='primary'):
-            if process_ongoing() and st.session_state['batch_progress'] < 0 or st.session_state['progress_type'] not in 'diffusion':
-                st.warning('Process busy!', icon="🚨")
-            else:
-                st.session_state['progress_type'] = 'diffusion'
-                for i, path in enumerate(trials):
-                    try:
-                        if not process_ongoing() and st.session_state['batch_progress'] < i:
-                            wkdir = path.parent
-                            shutil.rmtree(wkdir / outdir, ignore_errors=True)
-                            cfg = get_config(path)
-                            cmd = get_cmd(wkdir, **cfg['diffusion'])
-                            st.session_state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                            st.session_state['process_args'] = cfg['diffusion']['n_design'], f'Running inference for {cfg["name"]} ({i}/{len(trials)})', wkdir, prefix
-                            st.session_state['batch_progress'] = i
-                        if i == st.session_state['batch_progress']:
-                            progress()
-                    except Exception as e:
-                        st.session_state['process'].terminate()
-                        st.write(e)
-                    finally:
-                        if not process_ongoing():
-                            st.session_state['process'] = None
-                if np.isinf(st.session_state['batch_progress']):
-                    st.error('Process terminated', icon="⛔")
-                else:
-                    st.success(f'Batch running complete!', icon="✅")
-                st.session_state['progress_type'] = ''
-                st.session_state['batch_progress'] = -1

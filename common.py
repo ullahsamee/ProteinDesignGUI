@@ -5,11 +5,13 @@ import yaml
 from streamlit_molstar import st_molstar_content
 import time
 import numpy as np
+import shutil
+import subprocess
 
 
 def convert_selection(df):
     if not isinstance(df, pd.DataFrame):
-        df = pd.DataFrame(df)
+        df = pd.DataFrame(df, dtype=str)
     sel = '['
     for ind, row in df.iterrows():
         a = int(row['min_len'])
@@ -33,22 +35,39 @@ def stop_proc():
 
 
 def init():
-    if 'trials' not in st.session_state:
-        st.session_state['trials'] = []
-    if 'wkdir' not in st.session_state:
-        st.session_state['wkdir'] = ''
-    if 'process' not in st.session_state:
-        st.session_state['process'] = None
-    if 'batch_progress' not in st.session_state:
-        st.session_state['batch_progress'] = -1
-    if 'process_type' not in st.session_state:
-        st.session_state['process_type'] = ''
+    state = st.session_state
+    if 'trials' not in state:
+        state['trials'] = []
+    if 'wkdir' not in state:
+        state['wkdir'] = ''
+    if 'process' not in state:
+        state['process'] = None
+    if 'batch_progress' not in state:
+        state['batch_progress'] = -1
+    if 'process_type' not in state:
+        state['process_type'] = ''
+    if 'proceed1' not in state:
+        state['proceed1'] = False
+    if 'proceed2' not in state:
+        state['proceed2'] = False
 
+    def select_batch():
+        st.session_state['current_batch']()
+    st.sidebar.button('Batch Run', on_click=select_batch, use_container_width=True,
+                      disabled=state['current_batch'] is None)
     st.sidebar.subheader('Batch Automation')
-    st.sidebar.toggle('Proceed after RFDiffusion', key='toggle1')
-    st.sidebar.toggle('Proceed after ProteinMPNN', key='toggle2')
-    st.sidebar.button('Batch Run', on_click=stop_proc, use_container_width=True)
-    st.sidebar.button('Stop Process', on_click=stop_proc, type='primary', use_container_width=True)
+
+    def toggle1():
+        state['proceed1'] = state['toggle1']
+
+    def toggle2():
+        state['proceed2'] = state['toggle2']
+
+    st.sidebar.toggle('Proceed after RFDiffusion', state['proceed1'], key='toggle1', on_change=toggle1)
+    st.sidebar.toggle('Proceed after ProteinMPNN', state['proceed2'], key='toggle2', on_change=toggle2)
+    st.sidebar.divider()
+    st.sidebar.button('Abort Process', on_click=stop_proc, type='primary', use_container_width=True)
+    return st.sidebar.empty()
 
 
 def validate_dir(d):
@@ -90,9 +109,9 @@ def visual(pdb_list):
         st_molstar_content(pdb, 'pdb', height='500px')
 
 
-def progress():
+def progress(placeholder):
     tot, msg, wkdir, prefix = st.session_state['process_args']
-    bar = st.progress(0, msg)
+    bar = placeholder.progress(0, msg)
     while st.session_state['process'].poll() is None:
         output_pdbs = [*wkdir.glob(f'{prefix}*.pdb')]
         bar.progress(len(output_pdbs) / tot, msg)
@@ -112,19 +131,39 @@ def extract_chains(pdb):
     return sorted(chains)
 
 
-@st.fragment
 def table_edit(data, pdb, key):
     ops = extract_chains(pdb) if pdb is not None else [*(chr(i) for i in range(ord('A'), ord('Z') + 1))]
-    st.session_state[key] = st.data_editor(
-        pd.DataFrame(data, dtype=str), column_order=['chain', 'min_len', 'max_len'], num_rows='dynamic', use_container_width=True, key=f'{key}.data',
+    data = pd.DataFrame(data, dtype=str)
+    data['min_len'] = data['min_len'].astype(int)
+    data['max_len'] = data['max_len'].astype(int)
+    data = st.data_editor(
+        data, column_order=['chain', 'min_len', 'max_len'], num_rows='dynamic',
+        use_container_width=True, key=f'{key}.data',
         column_config={
             'chain': st.column_config.SelectboxColumn('Chain', options=ops, required=pdb is None),
             'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
             'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
         }
     )
-    st.markdown(f'The specified sequence map: `{convert_selection(st.session_state[key])}`')
+    data['min_len'] = data['min_len'].astype(int)
+    data['max_len'] = data['max_len'].astype(int)
+    # st.markdown(f'The specified sequence map: `{convert_selection(data)}`')
+    st.session_state[key] = data
 
 
 def process_ongoing():
     return st.session_state['process'] is not None and st.session_state['process'].poll() is None
+
+
+def signify_complete(placeholder):
+    if st.session_state['process'].returncode == 0:
+        placeholder.success('Trial complete!', icon="✅")
+    else:
+        placeholder.error('Trial terminated.', icon="⛔")
+
+
+def signify_batch_complete(placeholder):
+    if np.isinf(st.session_state['batch_progress']):
+        placeholder.error('Batch aborted', icon="⛔")
+    else:
+        placeholder.success(f'Batch complete!', icon="✅")

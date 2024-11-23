@@ -1,9 +1,7 @@
 import shutil
 import json
 
-import pandas as pd
-
-from utils import *
+from common import *
 
 
 @st.dialog('Add a new trial')
@@ -55,6 +53,7 @@ if __name__ == '__main__':
         page_title="Protein Design",
     )
 
+    st.session_state['current_batch'] = None
     init()
 
     st.title("Protein Design Applet")

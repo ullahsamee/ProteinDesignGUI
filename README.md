@@ -12,7 +12,7 @@ If using a github installed RFdiffusion:
 
 ```bash
 conda activate SE3nv    # to make sure that the GUI can call RFdiffusion
-pip install streamlit streamlit_molstar PyYAML
+pip install streamlit streamlit_molstar PyYAML streamlit-seqviz
 ```
 
 Run the command to start the server (in `SE3nv`).
