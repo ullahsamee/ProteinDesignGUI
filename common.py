@@ -27,11 +27,19 @@ def convert_selection(df):
     return sel
 
 
-def stop_proc():
-    if st.session_state['process'] is not None:
+def reset_proc():
+    if process_ongoing():
         st.session_state['process'].terminate()
-        if st.session_state['batch_progress'] >= 0:
-            st.session_state['batch_progress'] = np.inf
+        st.session_state['process'] = None
+        return True
+    return False
+
+
+def abort_proc():
+    if reset_proc() or batch_ongoing():
+        st.session_state['batch_progress'] = np.inf
+        st.toast('Job aborted', icon="🛑")
+
 
 
 def init():
@@ -43,19 +51,21 @@ def init():
     if 'process' not in state:
         state['process'] = None
     if 'batch_progress' not in state:
-        state['batch_progress'] = -1
+        state['batch_progress'] = np.inf
     if 'process_type' not in state:
         state['process_type'] = ''
     if 'proceed1' not in state:
         state['proceed1'] = False
     if 'proceed2' not in state:
         state['proceed2'] = False
+    if 'automated' not in state:
+        state['automated'] = False
+    if 'current_page' not in state:
+        state['current_page'] = False
 
-    def select_batch():
-        st.session_state['current_batch']()
-
-    st.sidebar.button('Batch Run', on_click=select_batch, use_container_width=True,
-                      disabled=state['current_batch'] is None)
+def navigation():
+    state = st.session_state
+    batch_clicked = st.sidebar.button('Batch Run', use_container_width=True, disabled=state['current_page'] is None)
     st.sidebar.subheader('Batch Automation')
 
     def toggle1():
@@ -64,11 +74,11 @@ def init():
     def toggle2():
         state['proceed2'] = state['toggle2']
 
-    st.sidebar.toggle('Proceed after RFDiffusion', state['proceed1'], key='toggle1', on_change=toggle1)
-    st.sidebar.toggle('Proceed after ProteinMPNN', state['proceed2'], key='toggle2', on_change=toggle2)
+    st.sidebar.toggle('Automatic ProteinMPNN', state['proceed1'], key='toggle1', on_change=toggle1)
+    st.sidebar.toggle('Automatic ColabFold', state['proceed2'], key='toggle2', on_change=toggle2)
     st.sidebar.divider()
-    st.sidebar.button('Abort Process', on_click=stop_proc, type='primary', use_container_width=True)
-    return st.sidebar.empty()
+    st.sidebar.button('Abort Process', on_click=abort_proc, type='primary', use_container_width=True)
+    return st.sidebar.container(), batch_clicked
 
 
 def validate_dir(d):
@@ -132,39 +142,51 @@ def extract_chains(pdb):
     return sorted(chains)
 
 
+def table_update(origin, updates):
+    data = pd.DataFrame(origin, dtype=str)
+    data['min_len'] = data['min_len'].astype(int)
+    data['max_len'] = data['max_len'].astype(int)
+    for ind, row in updates['edited_rows'].items():
+        for k, v in row.items():
+            data.loc[ind, k] = v
+    data.drop(updates['deleted_rows'], inplace=True)
+    for row in updates['added_rows']:
+        data = pd.concat([data, pd.DataFrame([row])], axis=0)
+    return data.to_dict('list')
+
+
 def table_edit(data, pdb, key):
     ops = extract_chains(pdb) if pdb is not None else [*(chr(i) for i in range(ord('A'), ord('Z') + 1))]
     data = pd.DataFrame(data, dtype=str)
     data['min_len'] = data['min_len'].astype(int)
     data['max_len'] = data['max_len'].astype(int)
-    data = st.data_editor(
-        data, column_order=['chain', 'min_len', 'max_len'], num_rows='dynamic',
-        use_container_width=True, key=f'{key}.data',
+    st.data_editor(
+        data, column_order=['chain', 'min_len', 'max_len'], num_rows='dynamic', use_container_width=True, key=key,
         column_config={
             'chain': st.column_config.SelectboxColumn('Chain', options=ops, required=pdb is None),
             'min_len': st.column_config.NumberColumn('Min', required=True, step=1, min_value=0),
             'max_len': st.column_config.NumberColumn('Max', required=True, step=1, min_value=0),
         }
     )
-    data['min_len'] = data['min_len'].astype(int)
-    data['max_len'] = data['max_len'].astype(int)
-    # st.markdown(f'The specified sequence map: `{convert_selection(data)}`')
-    st.session_state[key] = data
 
 
 def process_ongoing():
     return st.session_state['process'] is not None and st.session_state['process'].poll() is None
 
 
+def batch_ongoing():
+    return not np.isinf(st.session_state['batch_progress'])
+
+
 def signify_complete(placeholder):
     if st.session_state['process'].returncode == 0:
         placeholder.success('Trial complete!', icon="✅")
     else:
-        placeholder.error('Trial terminated.', icon="⛔")
+        placeholder.error('Trial Unfinished.', icon="⛔")
 
 
 def signify_batch_complete(placeholder):
-    if np.isinf(st.session_state['batch_progress']):
-        placeholder.error('Batch aborted', icon="⛔")
-    else:
+    if batch_ongoing():
         placeholder.success(f'Batch complete!', icon="✅")
+    else:
+        placeholder.error('Batch Unfinished', icon="⛔")

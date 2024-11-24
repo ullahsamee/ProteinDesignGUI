@@ -17,8 +17,8 @@ def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp):
 def sync():
     config['n_design'] = state['n_design']
     config['n_timestamp'] = state['n_timestamp']
-    config['contig'] = state['contig'].to_dict('list')
-    config['inpaint'] = state['inpaint'].to_dict('list')
+    config['contig'] = table_update(config['contig'], state['contig'])
+    config['inpaint'] = table_update(config['inpaint'], state['inpaint'])
 
 
 def save():
@@ -29,39 +29,14 @@ def save():
     st.toast('Configuration saved!', icon="✅")
 
 
-def run():
-    sync()
-    if state['batch_progress'] >= 0 or state['progress_type'] not in 'diffusion':
-        st.toast('Process busy!', icon="🚨")
-    else:
-        try:
-            state['progress_type'] = 'diffusion'
-            if state['process'] is None:
-                wkdir = active_trial.parent
-                shutil.rmtree(wkdir / outdir, ignore_errors=True)
-                cmd = get_cmd(wkdir, **config)
-                state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                state['process_args'] = state['n_design'], 'Running inference for single trial..', wkdir, prefix
-            else:
-                st.toast('Process busy!', icon="🚨")
-            progress(placeholder)
-            signify_complete(placeholder)
-        except Exception as e:
-            state['process'].terminate()
-            st.write(e)
-        finally:
-            state['progress_type'] = ''
-            state['process'] = None
-
-
 def batch():
-    if process_ongoing() and state['batch_progress'] < 0 or state['progress_type'] not in 'diffusion':
+    if process_ongoing() and not batch_ongoing():
         st.toast('Process busy!', icon="🚨")
     else:
-        state['progress_type'] = 'diffusion'
+        state['automated'] = False
         for i, path in enumerate(trials):
             try:
-                if not process_ongoing() and state['batch_progress'] < i:
+                if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
                     shutil.rmtree(wkdir / outdir, ignore_errors=True)
                     cfg = get_config(path)
@@ -72,29 +47,30 @@ def batch():
                 if i == state['batch_progress']:
                     progress(side_placeholder)
             except Exception as e:
-                state['process'].terminate()
                 st.write(e)
             finally:
-                if not process_ongoing():
-                    state['process'] = None
+                reset_proc()
         signify_batch_complete(side_placeholder)
-        state['progress_type'] = ''
-        state['batch_progress'] = -1
+        state['batch_progress'] = np.inf
 
         if state['proceed1']:
-            state['progress_type'] = 'continue'
+            state['automated'] = True
             st.switch_page('pages/2_ProteinMPNN.py')
 
 
 if __name__ == '__main__':
     st.set_page_config('Protein Design: Motif Scaffolding')
+    init()
 
     trials = state['trials']
-    state['current_batch'] = batch
     outdir = 'diffusion'
     prefix = outdir + '/design'
+    if state['current_page'] != 1:
+        abort_proc()
+    state['current_page'] = 1
 
-    side_placeholder = init()
+    side_placeholder, batch_clicked = navigation()
+    post_batch = False
 
     with open('config.yml') as f:
         config = yaml.safe_load(f)
@@ -117,7 +93,33 @@ if __name__ == '__main__':
                 table_edit(config['inpaint'], pdb, key='inpaint')
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True, on_click=save)
-                clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary', on_click=run)
+                clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
+            if clicked1 and batch_ongoing() or batch_clicked:
+                batch()
+                post_batch = True
+            elif clicked2:
+                sync()
+                if batch_ongoing():
+                    st.toast('Process busy!', icon="🚨")
+                    batch()
+                    post_batch = True
+                else:
+                    try:
+                        if not process_ongoing():
+                            wkdir = active_trial.parent
+                            shutil.rmtree(wkdir / outdir, ignore_errors=True)
+                            cmd = get_cmd(wkdir, **config)
+                            state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+                            state['process_args'] = state['n_design'], 'Running inference for single trial..', wkdir, prefix
+                        else:
+                            st.toast('Process busy!', icon="🚨")
+                        progress(st)
+                        signify_complete(st)
+                    except Exception as e:
+                        st.write(e)
+                    finally:
+                        reset_proc()
+
     with tab2:
         if active_trial is not None:
             results = sorted(active_trial.parent.glob(f'{prefix}*.pdb'))
@@ -125,4 +127,8 @@ if __name__ == '__main__':
                 visual(results)
             else:
                 st.warning('No results found.')
-    placeholder = st.empty()
+
+    if post_batch:
+        if state['proceed1']:
+            state['automated'] = True
+            st.switch_page('pages/2_ProteinMPNN.py')
