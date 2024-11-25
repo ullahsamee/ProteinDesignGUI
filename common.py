@@ -61,7 +61,9 @@ def init():
     if 'automated' not in state:
         state['automated'] = False
     if 'current_page' not in state:
-        state['current_page'] = False
+        state['current_page'] = None
+    if 'current_trial' not in state:
+        state['current_trial'] = None
 
 def navigation():
     state = st.session_state
@@ -124,7 +126,7 @@ def progress(placeholder):
     tot, msg, wkdir, prefix = st.session_state['process_args']
     bar = placeholder.progress(0, msg)
     while st.session_state['process'].poll() is None:
-        output_pdbs = [*wkdir.glob(f'{prefix}*.pdb')]
+        output_pdbs = [*wkdir.glob(prefix)]
         bar.progress(len(output_pdbs) / tot, msg)
         time.sleep(0.5)
     time.sleep(1)

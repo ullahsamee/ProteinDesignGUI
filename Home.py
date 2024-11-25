@@ -53,10 +53,10 @@ if __name__ == '__main__':
         page_title="Protein Design",
     )
 
+    init()
     if state['current_page'] is not None:
         abort_proc()
     state['current_page'] = None
-    init()
 
     st.title("Protein Design Applet")
 

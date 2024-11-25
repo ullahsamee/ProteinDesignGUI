@@ -10,7 +10,6 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
         echo "Signal received. Killing subprocess..."
         if [ -n "$pid" ] && ps -p $pid > /dev/null; then
             kill $pid
-            wait $pid 2>/dev/null
         fi
         echo "Cleanup complete. Exiting."
         exit 0
@@ -18,7 +17,14 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
     
     trap cleanup SIGINT SIGTERM
     cd {wkdir}
-    {exe} seqs {prefix} --num-models {n_mod} --num-recycle {n_recycle} {'--amber' if use_amber else ''} {'--template' if use_template else ''} &
+    ls seqs/*.fasta | while read fa; do
+        trap cleanup SIGINT SIGTERM
+        outdir={outdir}/`basename $fa .fasta`
+        mkdir -p $outdir
+        {exe} $fa $outdir --num-models {n_mod} --num-recycle {n_recycle} {'--amber' if use_amber else ''} {'--template' if use_template else ''} &
+        pid=$!
+        wait $pid
+    done &
     pid=$!
     wait $pid
     """
@@ -49,12 +55,12 @@ def batch():
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
-                    shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                    shutil.rmtree(wkdir / outdir, ignore_errors=True)
                     cfg = get_config(path)['fold']
                     cmd = get_cmd(wkdir, **cfg)
                     nfiles = len([*wkdir.glob('seqs/*.fasta')])
                     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd], shell=True)
-                    state['process_args'] = cfg['n_mod'] * nfiles, f'Running prediction.. ({0}/{len(trials)})', wkdir, prefix
+                    state['process_args'] = cfg['n_mod'] * nfiles, f'Running prediction.. ({0}/{len(trials)})', wkdir, wildcard
                     state['batch_progress'] = i
                 if i == state['batch_progress']:
                     progress(side_placeholder)
@@ -71,7 +77,8 @@ if __name__ == '__main__':
     init()
 
     trials = state['trials']
-    prefix = 'fold/'
+    outdir = 'fold'
+    wildcard = f'{outdir}/*'
     if state['current_page'] != 3:
         abort_proc()
     state['current_page'] = 3
@@ -85,7 +92,10 @@ if __name__ == '__main__':
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])
 
     with tab1:
-        active_trial = st.selectbox("Select a trial", trials)
+        ops = 0
+        if trials and state['current_trial'] is not None:
+            ops = trials.index(state['current_trial'])
+        active_trial = state['current_trial'] = st.selectbox("Select a trial", trials, ops)
         if active_trial is not None:
             config = get_config(active_trial)['fold']
             with st.form(key='fold'):
@@ -107,11 +117,11 @@ if __name__ == '__main__':
                     try:
                         if not process_ongoing():
                             wkdir = active_trial.parent
-                            shutil.rmtree(wkdir / prefix, ignore_errors=True)
+                            shutil.rmtree(wkdir / outdir, ignore_errors=True)
                             cmd = get_cmd(wkdir, **config)
                             state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
                             nfiles = len([*wkdir.glob('seqs/*.fasta')])
-                            state['process_args'] = config['n_mod'] * nfiles, 'Running prediction for single trial..', wkdir, prefix
+                            state['process_args'] = config['n_mod'] * nfiles, 'Running prediction for single trial..', wkdir, wildcard
                         else:
                             st.toast('Process busy!', icon="🚨")
                         progress(st)
@@ -123,7 +133,7 @@ if __name__ == '__main__':
 
     with tab2:
         if active_trial is not None:
-            results = sorted(active_trial.parent.rglob(f'{prefix}*.pdb'))
+            results = sorted(active_trial.parent.rglob(f'{wildcard}*/*.pdb'))
             if len(results) > 0:
                 visual(results)
             else:

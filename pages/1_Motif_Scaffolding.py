@@ -42,7 +42,7 @@ def batch():
                     cfg = get_config(path)
                     cmd = get_cmd(wkdir, **cfg['diffusion'])
                     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                    state['process_args'] = cfg['diffusion']['n_design'], f'Running inference for {cfg["name"]} ({i}/{len(trials)})', wkdir, prefix
+                    state['process_args'] = cfg['diffusion']['n_design'], f'Running inference for {cfg["name"]} ({i}/{len(trials)})', wkdir, wildcard
                     state['batch_progress'] = i
                 if i == state['batch_progress']:
                     progress(side_placeholder)
@@ -65,6 +65,7 @@ if __name__ == '__main__':
     trials = state['trials']
     outdir = 'diffusion'
     prefix = outdir + '/design'
+    wildcard = f'{prefix}*.pdb'
     if state['current_page'] != 1:
         abort_proc()
     state['current_page'] = 1
@@ -79,7 +80,10 @@ if __name__ == '__main__':
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])
 
     with tab1:
-        active_trial = st.selectbox("Select a trial", trials)
+        ops = 0
+        if trials and state['current_trial'] is not None:
+            ops = trials.index(state['current_trial'])
+        active_trial = state['current_trial'] = st.selectbox("Select a trial", trials, ops)
         if active_trial is not None:
             config = get_config(active_trial)['diffusion']
             with st.form('diffusion_form'):
@@ -110,7 +114,7 @@ if __name__ == '__main__':
                             shutil.rmtree(wkdir / outdir, ignore_errors=True)
                             cmd = get_cmd(wkdir, **config)
                             state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                            state['process_args'] = state['n_design'], 'Running inference for single trial..', wkdir, prefix
+                            state['process_args'] = state['n_design'], 'Running inference for single trial..', wkdir, wildcard
                         else:
                             st.toast('Process busy!', icon="🚨")
                         progress(st)
@@ -122,7 +126,7 @@ if __name__ == '__main__':
 
     with tab2:
         if active_trial is not None:
-            results = sorted(active_trial.parent.glob(f'{prefix}*.pdb'))
+            results = sorted(active_trial.parent.glob(wildcard))
             if len(results) > 0:
                 visual(results)
             else:

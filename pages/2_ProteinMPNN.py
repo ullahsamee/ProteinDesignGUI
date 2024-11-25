@@ -50,12 +50,12 @@ def batch():
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
-                    shutil.rmtree(wkdir / 'seq', ignore_errors=True)
+                    shutil.rmtree(wkdir / 'seqs', ignore_errors=True)
                     cfg = get_config(path)
                     files = [*wkdir.glob(f'{indir}*.pdb')]
                     cmd = get_cmd(wkdir, extract_chains(files[0]), **cfg['mpnn'])
                     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                    state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]} ({i}/{len(trials)})', wkdir, 'seq/'
+                    state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]} ({i}/{len(trials)})', wkdir, wildcard
                     state['batch_progress'] = i
                 if i == state['batch_progress']:
                     progress(side_placeholder)
@@ -75,6 +75,7 @@ if __name__ == '__main__':
 
     trials = state['trials']
     indir = 'diffusion/'
+    wildcard='seqs/*'
     if state['current_page'] != 2:
         abort_proc()
     state['current_page'] = 2
@@ -92,7 +93,10 @@ if __name__ == '__main__':
     tab1, = st.tabs(['Configure'])
 
     with tab1:
-        active_trial = st.selectbox("Select a trial", trials)
+        ops = 0
+        if trials and state['current_trial'] is not None:
+            ops = trials.index(state['current_trial'])
+        active_trial = state['current_trial'] = st.selectbox("Select a trial", trials, ops)
         if active_trial is not None:
             config = get_config(active_trial)['mpnn']
             with st.form('mpnn_form'):
@@ -118,11 +122,11 @@ if __name__ == '__main__':
                     try:
                         if not process_ongoing():
                             wkdir = active_trial.parent
-                            shutil.rmtree(wkdir / 'seq', ignore_errors=True)
+                            shutil.rmtree(wkdir / 'seqs', ignore_errors=True)
                             files = [*wkdir.glob(f'{indir}*.pdb')]
                             cmd = get_cmd(wkdir, extract_chains(files[0]), **config)
                             state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-                            state['process_args'] = len(files), f'Predicting sequences..', wkdir, 'seq/'
+                            state['process_args'] = len(files), f'Predicting sequences..', wkdir, wildcard
                         else:
                             st.toast('Process busy!', icon="🚨")
                         progress(st)
