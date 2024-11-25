@@ -10,7 +10,7 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, **kwargs):
     for c in chains:
         temp = set()
         for ind, row in fixed[fixed['chain'] == c].iterrows():
-            temp |= set([str(k) for k in range(row['min_len'], row['max_len']+1)])
+            temp |= set([str(k) for k in range(int(row['min_len']), int(row['max_len'])+1)])
         to_fix.append(' '.join(sorted(temp)))
     to_fix = ','.join(to_fix)
     chains = ' '.join(chains)

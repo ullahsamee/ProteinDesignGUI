@@ -89,6 +89,7 @@ if __name__ == '__main__':
             with st.form('diffusion_form'):
                 col1, col2 = st.columns(2)
                 col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d', key='n_design')
+                # col1.checkbox('Use beta model', config['beta'], key='beta')
                 col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d', key='n_timestamp')
                 pdb = active_trial.parent / config['protein']
                 st.subheader('Contigs Setting')
