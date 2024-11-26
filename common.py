@@ -41,7 +41,6 @@ def abort_proc():
         st.toast('Job aborted', icon="🛑")
 
 
-
 def init():
     state = st.session_state
     if 'trials' not in state:
@@ -65,10 +64,12 @@ def init():
     if 'current_trial' not in state:
         state['current_trial'] = None
 
+
 def navigation():
     state = st.session_state
     batch_clicked = st.sidebar.button('Batch Run', use_container_width=True, disabled=state['current_page'] is None)
-    st.sidebar.subheader('Batch Automation')
+    single_clicked = st.sidebar.button('Single Run', use_container_width=True, disabled=state['current_page'] is None)
+    st.sidebar.subheader('Automation')
 
     def toggle1():
         state['proceed1'] = state['toggle1']
@@ -80,7 +81,7 @@ def navigation():
     st.sidebar.toggle('Automatic ColabFold', state['proceed2'], key='toggle2', on_change=toggle2)
     st.sidebar.divider()
     st.sidebar.button('Abort Process', on_click=abort_proc, type='primary', use_container_width=True)
-    return st.sidebar.container(), batch_clicked
+    return st.sidebar.container(), batch_clicked, single_clicked
 
 
 def validate_dir(d):

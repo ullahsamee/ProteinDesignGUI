@@ -1,4 +1,6 @@
 from common import *
+import configparser
+
 
 state = st.session_state
 
@@ -86,11 +88,11 @@ if __name__ == '__main__':
 
     side_placeholder, batch_clicked = navigation()
 
-    with open('config.yml') as f:
-        config = yaml.safe_load(f)
-        conda = f"{config['PATH']['ColabFold']}/conda/etc/profile.d/conda.sh"
-        env = f"{config['PATH']['ColabFold']}/colabfold-conda"
-        exe = f"{config['PATH']['ColabFold']}/colabfold-conda/bin/colabfold_batch"
+    config = configparser.ConfigParser()
+    config.read('settings.conf')
+    conda = f"{config['PATH']['ColabFold']}/conda/etc/profile.d/conda.sh"
+    env = f"{config['PATH']['ColabFold']}/colabfold-conda"
+    exe = f"{config['PATH']['ColabFold']}/colabfold-conda/bin/colabfold_batch"
     st.title('Local ColabFold')
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])
 

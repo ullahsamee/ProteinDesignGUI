@@ -1,6 +1,7 @@
 {
   "diffusion": {
     "n_design": 100,
+    "beta": false,
     "n_timestamp": 50,
     "contig": {
       "chain": [],

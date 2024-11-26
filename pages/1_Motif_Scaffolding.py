@@ -1,13 +1,15 @@
 from common import *
-
+import configparser
 state = st.session_state
 
 
-def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp):
+def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp, beta):
     cmd = f"""
     cd {wkdir}
     {exe} inference.output_prefix={prefix} inference.input_pdb={protein} \
-    'contigmap.contigs={convert_selection(contig)}' inference.num_designs={n_design} diffuser.T={n_timestamp}"""
+    'contigmap.contigs={convert_selection(contig)}' inference.num_designs={n_design} diffuser.T={n_timestamp} \
+    {'inference.ckpt_override_path=models/Complex_beta_ckpt.pt' if beta else ''}
+    """
     temp = convert_selection(inpaint)
     if len(temp) > 2:
         cmd += f" 'contigmap.inpaint_seq={temp}'"
@@ -16,6 +18,7 @@ def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp):
 
 def sync():
     config['n_design'] = state['n_design']
+    config['beta'] = state['beta']
     config['n_timestamp'] = state['n_timestamp']
     config['contig'] = table_update(config['contig'], state['contig'])
     config['inpaint'] = table_update(config['inpaint'], state['inpaint'])
@@ -29,12 +32,15 @@ def save():
     st.toast('Configuration saved!', icon="✅")
 
 
-def batch():
+def batch(target=None):
     if process_ongoing() and not batch_ongoing():
         st.toast('Process busy!', icon="🚨")
     else:
         state['automated'] = False
         for i, path in enumerate(trials):
+            if target is not None:
+                if path != target and i != target:
+                    continue
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
@@ -70,12 +76,12 @@ if __name__ == '__main__':
         abort_proc()
     state['current_page'] = 1
 
-    side_placeholder, batch_clicked = navigation()
+    side_placeholder, batch_clicked, single_clicked = navigation()
     post_batch = False
 
-    with open('config.yml') as f:
-        config = yaml.safe_load(f)
-        exe = f"python {config['PATH']['RFdiffusion']}/scripts/run_inference.py"
+    config = configparser.ConfigParser()
+    config.read('settings.conf')
+    exe = f"python {config['PATH']['RFdiffusion']}/scripts/run_inference.py"
     st.title('Motif Scaffolding')
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])
 
@@ -89,7 +95,7 @@ if __name__ == '__main__':
             with st.form('diffusion_form'):
                 col1, col2 = st.columns(2)
                 col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d', key='n_design')
-                # col1.checkbox('Use beta model', config['beta'], key='beta')
+                col1.checkbox('Use beta model', config['beta'], key='beta')
                 col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d', key='n_timestamp')
                 pdb = active_trial.parent / config['protein']
                 st.subheader('Contigs Setting')

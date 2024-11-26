@@ -1,4 +1,6 @@
 from common import *
+import configparser
+
 
 state = st.session_state
 
@@ -83,12 +85,12 @@ if __name__ == '__main__':
     side_placeholder, batch_clicked = navigation()
     post_batch = False
 
-    with open('config.yml') as f:
-        config = yaml.safe_load(f)
-        exe_main = f"python {config['PATH']['ProteinMPNN']}/protein_mpnn_run.py"
-        exe_parse = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/parse_multiple_chains.py"
-        exe_assign = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
-        exe_fix = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
+    config = configparser.ConfigParser()
+    config.read('settings.conf')
+    exe_main = f"python {config['PATH']['ProteinMPNN']}/protein_mpnn_run.py"
+    exe_parse = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/parse_multiple_chains.py"
+    exe_assign = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
+    exe_fix = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
     st.title('ProteinMPNN')
     tab1, = st.tabs(['Configure'])
 
