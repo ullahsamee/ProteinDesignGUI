@@ -82,8 +82,6 @@ if __name__ == '__main__':
     trials = state['trials']
     outdir = 'fold'
     wildcard = f'{outdir}/*'
-    if state['current_page'] != 3:
-        abort_proc()
     state['current_page'] = 3
 
     side_placeholder, batch_clicked = navigation()
@@ -143,3 +141,5 @@ if __name__ == '__main__':
                 visual(results)
             else:
                 st.warning('No results found.')
+
+    conclude(side_placeholder)

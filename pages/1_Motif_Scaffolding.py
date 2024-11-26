@@ -72,8 +72,6 @@ if __name__ == '__main__':
     outdir = 'diffusion'
     prefix = outdir + '/design'
     wildcard = f'{prefix}*.pdb'
-    if state['current_page'] != 1:
-        abort_proc()
     state['current_page'] = 1
 
     side_placeholder, batch_clicked, single_clicked = navigation()
@@ -105,8 +103,11 @@ if __name__ == '__main__':
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True, on_click=save)
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
-            if clicked1 and batch_ongoing() or batch_clicked:
-                batch()
+            if clicked1 and batch_ongoing() or batch_clicked or single_clicked:
+                if single_clicked:
+                    batch(active_trial)
+                else:
+                    batch()
                 post_batch = True
             elif clicked2:
                 sync()
@@ -143,3 +144,5 @@ if __name__ == '__main__':
         if state['proceed1']:
             state['automated'] = True
             st.switch_page('pages/2_ProteinMPNN.py')
+
+    conclude(side_placeholder)

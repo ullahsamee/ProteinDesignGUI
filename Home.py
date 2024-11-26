@@ -54,8 +54,6 @@ if __name__ == '__main__':
     )
 
     init()
-    if state['current_page'] is not None:
-        abort_proc()
     state['current_page'] = None
 
     st.title("Protein Design Applet")

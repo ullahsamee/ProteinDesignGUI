@@ -5,7 +5,7 @@ import configparser
 state = st.session_state
 
 
-def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, **kwargs):
+def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n):
     if not isinstance(fixed, pd.DataFrame):
         fixed = pd.DataFrame(fixed, dtype=str)
     to_fix = []
@@ -23,6 +23,7 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, **kwargs):
     {exe_fix} --input_path=parsed_pdbs.jsonl --output_path=fixed_pdbs.jsonl --chain_list "{chains}" --position_list "{to_fix}" {'--specify_non_fixed' if invert_fix else ''}
     {exe_main} --jsonl_path parsed_pdbs.jsonl --chain_id_jsonl assigned_pdbs.jsonl --fixed_positions_jsonl fixed_pdbs.jsonl \
         --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
+    {exe_post} {wkdir} {top_n}
     """
     return cmd
 
@@ -43,12 +44,15 @@ def save():
     st.toast('Configuration saved!', icon="✅")
 
 
-def batch():
+def batch(target=None):
     if process_ongoing() and not batch_ongoing():
         st.warning('Process busy!', icon="🚨")
     else:
         state['automated'] = False
         for i, path in enumerate(trials):
+            if target is not None:
+                if path != target and i != target:
+                    continue
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
@@ -61,8 +65,6 @@ def batch():
                     state['batch_progress'] = i
                 if i == state['batch_progress']:
                     progress(side_placeholder)
-                    for j in (state['process_args'][2] / 'seqs').glob('*.fa'):
-                        post_process_mpnn(j, get_config(path)['mpnn']['top_n'])
             except Exception as e:
                 st.write(e)
             finally:
@@ -78,8 +80,6 @@ if __name__ == '__main__':
     trials = state['trials']
     indir = 'diffusion/'
     wildcard='seqs/*'
-    if state['current_page'] != 2:
-        abort_proc()
     state['current_page'] = 2
 
     side_placeholder, batch_clicked = navigation()
@@ -91,6 +91,7 @@ if __name__ == '__main__':
     exe_parse = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/parse_multiple_chains.py"
     exe_assign = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
     exe_fix = f"python {config['PATH']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
+    exe_post = f"python {Path(__file__).parent}/postprocess_seq.py"
     st.title('ProteinMPNN')
     tab1, = st.tabs(['Configure'])
 
@@ -132,8 +133,6 @@ if __name__ == '__main__':
                         else:
                             st.toast('Process busy!', icon="🚨")
                         progress(st)
-                        for i in (state['process_args'][2] / 'seqs').glob('*.fa'):
-                            post_process_mpnn(i, config['top_n'])
                         signify_complete(st)
                     except Exception as e:
                         st.write(e)
@@ -144,3 +143,5 @@ if __name__ == '__main__':
         if state['proceed2']:
             state['automated'] = True
             st.switch_page('pages/3_Local_ColabFold.py')
+
+    conclude(side_placeholder)

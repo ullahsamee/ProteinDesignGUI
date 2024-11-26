@@ -81,7 +81,13 @@ def navigation():
     st.sidebar.toggle('Automatic ColabFold', state['proceed2'], key='toggle2', on_change=toggle2)
     st.sidebar.divider()
     st.sidebar.button('Abort Process', on_click=abort_proc, type='primary', use_container_width=True)
+
     return st.sidebar.container(), batch_clicked, single_clicked
+
+
+def conclude(place):
+    if batch_ongoing():
+        progress(place)
 
 
 def validate_dir(d):
@@ -96,22 +102,6 @@ def get_config(path):
 def put_config(c, path):
     with open(path, 'w') as f:
         f.write(yaml.dump(c))
-
-
-def get_score(seq):
-    f1 = seq.find(' score=') + 7
-    f2 = seq.find(',', f1)
-    return float(seq[f1:f2])
-
-
-def post_process_mpnn(path, topN):
-    with open(path, 'r') as f:
-        seqs = f.read().split('>')[2:]
-        scores = [get_score(s) for s in seqs]
-        seqs = [seqs[i] for i in np.argsort(scores)[:min(len(seqs), topN)]]
-        text = '>' + '>'.join(seqs).replace('/', ':')
-    with open(path.with_suffix('.fasta'), 'w') as f:
-        f.write(text)
 
 
 @st.fragment
