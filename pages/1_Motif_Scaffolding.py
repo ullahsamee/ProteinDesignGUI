@@ -38,9 +38,8 @@ def batch(target=None):
     else:
         state['automated'] = False
         for i, path in enumerate(trials):
-            if target is not None:
-                if path != target and i != target:
-                    continue
+            if path != target and i != target:
+                continue
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent

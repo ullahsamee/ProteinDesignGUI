@@ -88,6 +88,8 @@ def navigation():
 def conclude(place):
     if batch_ongoing():
         progress(place)
+    elif process_ongoing():
+        progress(st)
 
 
 def validate_dir(d):

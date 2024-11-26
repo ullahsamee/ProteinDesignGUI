@@ -49,12 +49,14 @@ def save():
     st.toast('Configuration saved!', icon="✅")
 
 
-def batch():
+def batch(target=None):
     if process_ongoing() and not batch_ongoing():
         st.toast('Process busy!', icon="🚨")
     else:
         state['automated'] = False
         for i, path in enumerate(trials):
+            if path != target and i != target:
+                continue
             try:
                 if not process_ongoing() and (state['batch_progress'] < i or not batch_ongoing()):
                     wkdir = path.parent
@@ -84,7 +86,7 @@ if __name__ == '__main__':
     wildcard = f'{outdir}/*'
     state['current_page'] = 3
 
-    side_placeholder, batch_clicked = navigation()
+    side_placeholder, batch_clicked, single_clicked = navigation()
 
     config = configparser.ConfigParser()
     config.read('settings.conf')
@@ -109,8 +111,11 @@ if __name__ == '__main__':
                 col1, col2 = st.columns(2)
                 clicked1 = col1.form_submit_button('Save', use_container_width=True, on_click=save)
                 clicked2 = col2.form_submit_button('Run', use_container_width=True, type='primary')
-            if clicked1 and batch_ongoing() or batch_clicked or state['automated']:
-                batch()
+            if clicked1 and batch_ongoing() or batch_clicked or state['automated'] or single_clicked:
+                if single_clicked:
+                    batch(active_trial)
+                else:
+                    batch()
             elif clicked2:
                 sync()
                 if batch_ongoing():
