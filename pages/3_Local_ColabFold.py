@@ -14,11 +14,12 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
         echo "Cleanup complete. Exiting."
         exit 0
     }}
-    
     trap cleanup SIGINT SIGTERM
     cd {wkdir}
     ls seqs/*.fasta | while read fa; do
         trap cleanup SIGINT SIGTERM
+        source {conda}
+        conda activate {env}
         outdir={outdir}/`basename $fa .fasta`
         mkdir -p $outdir
         {exe} $fa $outdir --num-models {n_mod} --num-recycle {n_recycle} {'--amber' if use_amber else ''} {'--template' if use_template else ''} &
@@ -87,6 +88,8 @@ if __name__ == '__main__':
 
     with open('config.yml') as f:
         config = yaml.safe_load(f)
+        conda = f"{config['PATH']['ColabFold']}/conda/etc/profile.d/conda.sh"
+        env = f"{config['PATH']['ColabFold']}/colabfold-conda"
         exe = f"{config['PATH']['ColabFold']}/colabfold-conda/bin/colabfold_batch"
     st.title('Local ColabFold')
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])
