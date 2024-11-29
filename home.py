@@ -1,5 +1,5 @@
-import json
 from common import *
+import shutil
 
 state = st.session_state
 
@@ -11,23 +11,13 @@ def add():
         "Select an existing trial as template",
         [None] + [str(i) for i in state['trials']],
     )
-    pdb = st.file_uploader('Input a PDB for motif reference (optional if with template)', '.pdb')
     if st.button('Confirm', use_container_width=True):
         assert name not in state['trials'], f"Trial {name} already exists."
         assert len(name) > 0, "Trial name cannot be empty."
         temp = Path(state['wkdir']) / name
         temp.mkdir(exist_ok=True)
-        if template is not None:
-            cfg = get_config(template)
-            shutil.copy(Path(template).parent / cfg['diffusion']['protein'], temp)
-        else:
-            assert pdb is not None, 'You must have a protein for one trial.'
-            with open('default.json', 'r') as f:
-                cfg = json.load(f)
-        if pdb is not None:
-            cfg['diffusion']['protein'] = pdb.name
-            with open(temp / pdb.name, 'wb') as f:
-                f.write(pdb.getvalue())
+        cfg = get_config(template)
+        shutil.copytree(Path(template).parent / '*_input', temp)
         cfg['name'] = name
         p = temp / 'config.yml'
         put_config(cfg, p)
@@ -48,14 +38,7 @@ def delete():
         st.rerun()
 
 
-if __name__ == '__main__':
-    st.set_page_config(
-        page_title="Protein Design",
-    )
-
-    init()
-    state['current_page'] = None
-
+if __name__ == '__page__':
     st.title("Protein Design Applet")
 
     with st.form('path', border=False):
@@ -90,3 +73,6 @@ if __name__ == '__main__':
             b1 = c1.button('Add', use_container_width=True, on_click=add)
             b2 = c2.button('Delete', use_container_width=True, on_click=delete,
                            disabled=len(state['trials']) == 0, type='primary')
+
+    if process_ongoing():
+        progress()

@@ -4,13 +4,14 @@ Usage: python migrate.py settings.conf [outpath]
 
 import sys
 import json
-from common import get_config, put_config
+import yaml
 
 
 if __name__ == '__main__':
     path = sys.argv[1]
-    config = get_config(path)
-    with open('default.json', 'r') as f:
+    with open(path, 'r') as f:
+        config = yaml.safe_load(f)
+    with open('../default.json', 'r') as f:
         cfg = json.load(f)
     for k, v in cfg.items():
         for kk, vv in cfg.items():
@@ -18,4 +19,5 @@ if __name__ == '__main__':
                 config[k][kk] = v
     if len(sys.argv) > 2:
         path = sys.argv[2]
-    put_config(config, path)
+    with open(path, 'w') as f:
+        f.write(yaml.dump(config))

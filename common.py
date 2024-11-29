@@ -4,9 +4,7 @@ from pathlib import Path
 import yaml
 from streamlit_molstar import st_molstar_content
 import time
-import numpy as np
-import shutil
-import subprocess
+import json
 
 
 def convert_selection(df):
@@ -30,73 +28,23 @@ def convert_selection(df):
 def reset_proc():
     if process_ongoing():
         st.session_state['process'].terminate()
-        st.session_state['process'] = None
         return True
     return False
 
 
 def abort_proc():
-    if reset_proc() or batch_ongoing():
-        st.session_state['batch_progress'] = np.inf
+    if reset_proc():
         st.toast('Job aborted', icon="🛑")
-
-
-def init():
-    state = st.session_state
-    if 'trials' not in state:
-        state['trials'] = []
-    if 'wkdir' not in state:
-        state['wkdir'] = ''
-    if 'process' not in state:
-        state['process'] = None
-    if 'batch_progress' not in state:
-        state['batch_progress'] = np.inf
-    if 'process_type' not in state:
-        state['process_type'] = ''
-    if 'proceed1' not in state:
-        state['proceed1'] = False
-    if 'proceed2' not in state:
-        state['proceed2'] = False
-    if 'automated' not in state:
-        state['automated'] = False
-    if 'current_page' not in state:
-        state['current_page'] = None
-    if 'current_trial' not in state:
-        state['current_trial'] = None
-
-
-def navigation():
-    state = st.session_state
-    batch_clicked = st.sidebar.button('Batch Run', use_container_width=True, disabled=state['current_page'] is None)
-    single_clicked = st.sidebar.button('Single Run', use_container_width=True, disabled=state['current_page'] is None)
-    st.sidebar.subheader('Automation')
-
-    def toggle1():
-        state['proceed1'] = state['toggle1']
-
-    def toggle2():
-        state['proceed2'] = state['toggle2']
-
-    st.sidebar.toggle('Automatic ProteinMPNN', state['proceed1'], key='toggle1', on_change=toggle1)
-    st.sidebar.toggle('Automatic ColabFold', state['proceed2'], key='toggle2', on_change=toggle2)
-    st.sidebar.divider()
-    st.sidebar.button('Abort Process', on_click=abort_proc, type='primary', use_container_width=True)
-
-    return st.sidebar.container(), batch_clicked, single_clicked
-
-
-def conclude(place):
-    if batch_ongoing():
-        progress(place)
-    elif process_ongoing():
-        progress(st)
 
 
 def validate_dir(d):
     return d and Path(d).is_dir()
 
 
-def get_config(path):
+def get_config(path=None):
+    if path is None:
+        with open('default.json', 'r') as f:
+            return json.load(f)
     with open(path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -115,15 +63,27 @@ def visual(pdb_list):
         st_molstar_content(pdb, 'pdb', height='500px')
 
 
-def progress(placeholder):
-    tot, msg, wkdir, prefix = st.session_state['process_args']
+def progress():
+    state = st.session_state
+    placeholder = st.sidebar.container()
+    tot, msg, outdir, wildcard, stage, trial = st.session_state['process_args']
     bar = placeholder.progress(0, msg)
-    while st.session_state['process'].poll() is None:
-        output_pdbs = [*wkdir.glob(prefix)]
-        bar.progress(len(output_pdbs) / tot, msg)
+    while state['process'].poll() is None:
+        pro = len([*outdir.glob(wildcard)])
+        bar.progress(pro / tot, msg)
         time.sleep(0.5)
-    time.sleep(1)
+    time.sleep(0.5)
     bar.empty()
+    if state['process'].returncode == 0:
+        placeholder.success('Trial complete!', icon="✅")
+    else:
+        placeholder.error('Trial Unfinished.', icon="⛔")
+    if stage == 1 and state['proceed1']:
+        state['auto'] = trial
+        st.switch_page('pages/mpnn.py')
+    elif stage == 2 and state['proceed2']:
+        state['auto'] = trial
+        st.switch_page('pages/colabfold.py')
 
 
 def extract_chains(pdb):
@@ -167,21 +127,3 @@ def table_edit(data, pdb, key):
 
 def process_ongoing():
     return st.session_state['process'] is not None and st.session_state['process'].poll() is None
-
-
-def batch_ongoing():
-    return not np.isinf(st.session_state['batch_progress'])
-
-
-def signify_complete(placeholder):
-    if st.session_state['process'].returncode == 0:
-        placeholder.success('Trial complete!', icon="✅")
-    else:
-        placeholder.error('Trial Unfinished.', icon="⛔")
-
-
-def signify_batch_complete(placeholder):
-    if batch_ongoing():
-        placeholder.success(f'Batch complete!', icon="✅")
-    else:
-        placeholder.error('Batch Unfinished', icon="⛔")
