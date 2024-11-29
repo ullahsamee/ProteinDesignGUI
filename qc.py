@@ -37,13 +37,6 @@ def get_error(path: Path):
     return data['max_pae'], data['ptm']
 
 
-def get_seq(path: Path):
-    fname = path.name
-    sample_num, dname = extract_fname(fname)
-    fa = (path.parent.parent / indir1).glob(f'{dname}.fasta')
-    for record in SeqIO.parse(fname, 'fasta'):
-
-
 if __name__ == '__page__':
     trials = state['trials']
     active = state['current_trial']
@@ -83,7 +76,7 @@ if __name__ == '__page__':
                     pae, ptm = get_error(mod)
                     table.append({
                         'filename': mod.name,
-                        'sequence': get_seq(mod),
+                        'sequence': record.seq,
                         'RMSD': a.align(p.get_structure('b', mod), False),
                         'PAE': pae,
                         'pTM': ptm
