@@ -1,6 +1,8 @@
 {
   "diffusion": {
+    "protein": null,
     "n_design": 100,
+    "beta": false,
     "n_timestamp": 50,
     "contig": {
       "chain": [],
@@ -14,9 +16,9 @@
     }
   },
   "fold": {
-    "use_amber": true,
-    "use_template": true,
-    "n_mod": 5,
+    "use_amber": false,
+    "use_template": false,
+    "n_mod": 1,
     "n_recycle": 3
   },
   "mpnn": {
@@ -29,5 +31,10 @@
       "min_len": [],
       "max_len": []
     }
+  },
+  "qc": {
+    "protein": null,
+    "win_size": 8,
+    "max_gap": 30
   }
 }
