@@ -5,6 +5,8 @@ state = st.session_state
 
 def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
     cmd = f"""
+    source {conda}
+    conda activate {env}
     # Function to handle signals
     cleanup() {{
         echo "Signal received. Killing subprocess..."
@@ -14,12 +16,10 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
         echo "Cleanup complete. Exiting."
         exit 0
     }}
-    trap cleanup SIGINT SIGTERM
     cd {wkdir}
-    ls seqs/*.fasta | while read fa; do
+    trap cleanup SIGINT SIGTERM
+    for fa in `ls seqs/*.fasta`; do
         trap cleanup SIGINT SIGTERM
-        source {conda}
-        conda activate {env}
         outdir={outdir}/`basename $fa .fasta`
         mkdir -p $outdir
         {exe} $fa $outdir --num-models {n_mod} --num-recycle {n_recycle} {'--amber' if use_amber else ''} {'--template' if use_template else ''} &
