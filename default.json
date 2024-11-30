@@ -33,7 +33,6 @@
     }
   },
   "qc": {
-    "protein": null,
     "win_size": 8,
     "max_gap": 30
   }

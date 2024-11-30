@@ -16,12 +16,6 @@ def sync(config):
 
 def save():
     sync(cfg['qc'])
-    d = active.parent / refdir
-    d.mkdir(parents=True, exist_ok=True)
-    if state['protein'] is not None:
-        config['protein'] = state['protein'].name
-        with open(d / cfg['qc']['protein'], 'wb') as f:
-            f.write(state['protein'].getvalue())
     put_config(cfg, active)
     st.toast('Configuration saved!', icon="✅")
 
@@ -29,12 +23,11 @@ def save():
 def extract_fname(fname):
     f1 = fname.find('Sample') + 6
     f2 = fname.find('_', f1)
-    return fname[f1:f2], fname[:fname.find('_')]
+    return fname[f1:f2]
 
 
-def get_error(path: Path):
-    sample_num, dname = extract_fname(path.name)
-    dname = 'Design_' + dname[6:]
+def get_error(path: Path, dname):
+    sample_num = extract_fname(path.name)
     data = next((path.parent / dname).glob(f'*_sample_{sample_num}_*scores*.json'))
     with open(data, 'r') as f:
         data = json.load(f)
@@ -44,9 +37,9 @@ def get_error(path: Path):
 if __name__ == '__page__':
     trials = state['trials']
     active = state['current_trial']
-    refdir = 'qc_input'
     indir1 = 'seqs'
     indir2 = 'fold'
+    indir3 = 'diffusion'
 
     config = configparser.ConfigParser()
 
@@ -59,8 +52,6 @@ if __name__ == '__page__':
     config = cfg['qc']
     with tab1:
         with st.form('form'):
-            st.file_uploader('Upload a PDB as a reference protein', '.pdb', False, key='protein')
-            st.write('**Saved Reference Protein:**', config['protein'])
             col1, col2 = st.columns(2)
             ws = col1.number_input('Window size', .01, value=float(config['win_size']), key='win_size')
             mg = col2.number_input('Max gap', 0., value=float(config['max_gap']), key='max_gap')
@@ -70,18 +61,17 @@ if __name__ == '__page__':
 
     if clicked:
         p, a = PDBParser(), CEAligner()
-        a.set_reference(p.get_structure('a', active.parent / refdir / config['protein']))
         table = []
         for i in (active.parent / indir1).glob('*.fasta'):
+            a.set_reference(p.get_structure('a', active.parent / indir3 / i.with_suffix('.pdb').name))
             for record in SeqIO.parse(i, "fasta"):
-                # Parse the header metadata
                 metadata = record.description.split(", ")
                 metadata_dict = {item.split("=")[0]: item.split("=")[1] for item in metadata if "=" in item}
-                name = i.name
+                name = i.stem
                 if name.startswith('design_'):
                     name = f'Design{name[7:]}'
                 for mod in (active.parent / indir2).glob(f'{name}_Sample{metadata_dict["sample"]}_*.pdb'):
-                    pae, ptm = get_error(mod)
+                    pae, ptm = get_error(mod, i.stem)
                     a.align(p.get_structure('b', mod), False)
                     table.append({
                         'filename': mod.stem,

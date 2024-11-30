@@ -7,6 +7,7 @@ import json
 import yaml
 from pathlib import Path
 import shutil
+import os
 
 
 if __name__ == '__main__':
@@ -21,15 +22,18 @@ if __name__ == '__main__':
         else:
             for kk, vv in v.items():
                 if kk not in config[k]:
-                    config[k][kk] = v
-    prot = path.parent / config['diffusion']['protein']
+                    config[k][kk] = vv
 
-    if len(sys.argv) > 2:
-        path = Path(sys.argv[2])
+    prot = path.parent / config['diffusion']['protein']
+    fold = path.parent / 'fold'
 
     with open(path, 'w') as f:
         f.write(yaml.dump(config))
 
-    diff_in = path.parent / 'diffusion_input'
-    diff_in.mkdir(parents=True, exist_ok=True)
-    shutil.copy(prot, diff_in)
+    if prot.exists():
+        diff_in = path.parent / 'diffusion_input'
+        diff_in.mkdir(parents=True, exist_ok=True)
+        shutil.move(prot, diff_in)
+
+    if fold.exists():
+        os.system(f'python {Path(__file__).parent}/postprocess_fold.py {fold}')

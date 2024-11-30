@@ -34,6 +34,6 @@ if __name__ == '__main__':
             name = f'Design{name[7:]}'
         for j in od:
             shutil.copy(pdbs[j], path / f'{name}_Sample{samples[j]}_model{models[j]}_Rank{rank}.pdb')
-            if last_score is not None and last_score < scores[j]:
+            if last_score is None or last_score < scores[j]:
                 last_score = scores[j]
                 rank += 1
