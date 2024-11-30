@@ -14,13 +14,16 @@ def try_run():
     seqs = st.file_uploader('Input FASTAs for folding', '.fasta', True)
     if st.button('Confirm', use_container_width=True):
         assert len(seqs) > 0, 'No FASTA sequences.'
-        cache_dir = cache / str(datetime.now())
+        cache_dir = cache / f'{datetime.now()} colabfold'
+        input_dir = cache_dir / 'seqs'
+        input_dir.mkdir(parents=True, exist_ok=True)
         t = cache_dir / 'config.yml'
-        cfg = get_config()
+        cfg = get_config(active)
         sync(cfg['fold'])
+        cfg['name'] = 'TestJob'
         put_config(cfg, t)
         for i in seqs:
-            with open(cache_dir / 'seqs' / i.name, 'wb') as f:
+            with open(input_dir / i.name, 'wb') as f:
                 f.write(i.getvalue())
         setup_process(t)
         st.rerun()
@@ -39,7 +42,7 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
         echo "Cleanup complete. Exiting."
         exit 0
     }}
-    cd {wkdir}
+    cd "{wkdir}"
     trap cleanup SIGINT SIGTERM
     for fa in `ls seqs/*.fasta`; do
         trap cleanup SIGINT SIGTERM
@@ -51,7 +54,7 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
     done &
     pid=$!
     wait $pid
-    {exe_post} {wkdir}/fold
+    {exe_post} fold
     """
     return cmd
 
@@ -70,11 +73,10 @@ def save():
 
 
 def setup_process(trial):
-    state['auto'] = None
     wkdir = trial.parent
     shutil.rmtree(wkdir / outdir, ignore_errors=True)
     cfg = get_config(trial)
-    cmd = get_cmd(wkdir, **config)
+    cmd = get_cmd(wkdir, **cfg['fold'])
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     nfiles = len([*wkdir.glob('seqs/*.fasta')])
     state['process_args'] = cfg['fold']['n_mod'] * nfiles, f'Getting Fold for {cfg["name"]}..', wkdir, wildcard, 3, trial
@@ -96,6 +98,7 @@ if __name__ == '__page__':
 
     if state['auto'] is not None:
         setup_process(state['auto'])
+        state['auto'] = None
 
     st.title('ColabFold')
     tab1, tab2 = st.tabs(['Configure', 'Visualize'])

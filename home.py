@@ -17,7 +17,8 @@ def add():
         temp = Path(state['wkdir']) / name
         temp.mkdir(exist_ok=True)
         cfg = get_config(template)
-        shutil.copytree(Path(template).parent / '*_input', temp)
+        if template is not None:
+            shutil.copytree(Path(template).parent / '*_input', temp)
         cfg['name'] = name
         p = temp / 'config.yml'
         put_config(cfg, p)
@@ -52,6 +53,7 @@ if __name__ == '__page__':
         assert validate_dir(wkdir), 'Invalid directory'
         wkdir = Path(wkdir)
         trials = state['trials'] = sorted(wkdir.rglob('*.yml'))
+        st.rerun()
 
     if validate_dir(state['wkdir']):
         with st.expander('Trials', expanded=True):

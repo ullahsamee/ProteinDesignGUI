@@ -14,13 +14,16 @@ def try_run():
     pdbs = st.file_uploader('Input PDBs for sequence prediction', '.pdb', True)
     if st.button('Confirm', use_container_width=True):
         assert len(pdbs) > 0, 'No PDB uploaded.'
-        cache_dir = cache / str(datetime.now())
+        cache_dir = cache / f'{datetime.now()} mpnn'
+        input_dir = cache_dir / indir
+        input_dir.mkdir(parents=True, exist_ok=True)
         t = cache_dir / 'config.yml'
-        cfg = get_config()
+        cfg = get_config(active)
         sync(cfg['mpnn'])
+        cfg['name'] = 'TestJob'
         put_config(cfg, t)
         for i in pdbs:
-            with open(cache_dir / indir / i.name, 'wb') as f:
+            with open(input_dir / i.name, 'wb') as f:
                 f.write(i.getvalue())
         setup_process(t)
         st.rerun()
@@ -38,13 +41,13 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n):
     to_fix = ','.join(to_fix)
     chains = ' '.join(chains)
     cmd = f"""
-    cd {wkdir}
+    cd "{wkdir}"
     {exe_parse} --input_path=diffusion --output_path=parsed_pdbs.jsonl
     {exe_assign} --input_path=parsed_pdbs.jsonl --output_path=assigned_pdbs.jsonl --chain_list "{chains}"
     {exe_fix} --input_path=parsed_pdbs.jsonl --output_path=fixed_pdbs.jsonl --chain_list "{chains}" --position_list "{to_fix}" {'--specify_non_fixed' if invert_fix else ''}
     {exe_main} --jsonl_path parsed_pdbs.jsonl --chain_id_jsonl assigned_pdbs.jsonl --fixed_positions_jsonl fixed_pdbs.jsonl \
         --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
-    {exe_post} {wkdir}/seqs {top_n}
+    {exe_post} seqs {top_n}
     """
     return cmd
 
@@ -64,19 +67,21 @@ def save():
 
 
 def setup_process(trial):
-    state['auto'] = None
-    shutil.rmtree(trial / 'seqs', ignore_errors=True)
-    files = [*trial.glob(f'{indir}/*.pdb')]
-    cmd = get_cmd(trial.parent, extract_chains(files[0]), **config)
+    p = trial.parent
+    cfg = get_config(trial)
+    o = p / 'seqs'
+    shutil.rmtree(o, ignore_errors=True)
+    files = [*(p / indir).glob(f'*.pdb')]
+    cmd = get_cmd(p, extract_chains(files[0]), **cfg['mpnn'])
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-    state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]}..', trial.parent, wildcard, 2, trial
+    state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]}..', o, wildcard, 2, trial
 
 
 if __name__ == '__page__':
     trials = state['trials']
     active = state['current_trial']
     indir = 'diffusion'
-    wildcard='seqs/*'
+    wildcard = 'seqs/*'
 
     config = configparser.ConfigParser()
     config.read('settings.conf')
@@ -89,6 +94,7 @@ if __name__ == '__page__':
 
     if state['auto'] is not None:
         setup_process(state['auto'])
+        state['auto'] = None
 
     if active is not None:
         active = Path(active)

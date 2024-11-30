@@ -13,6 +13,10 @@ if __name__ == '__main__':
         state['process'] = None
     if 'auto' not in state:
         state['auto'] = None
+    if 'proceed1' in state:
+        state['proceed1'] = state['proceed1']
+    if 'proceed2' in state:
+        state['proceed2'] = state['proceed2']
 
     pg = st.navigation(
         {

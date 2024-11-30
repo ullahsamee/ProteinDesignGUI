@@ -70,7 +70,7 @@ def progress():
     bar = placeholder.progress(0, msg)
     while state['process'].poll() is None:
         pro = len([*outdir.glob(wildcard)])
-        bar.progress(pro / tot, msg)
+        bar.progress(pro / tot, msg + f' ({pro}/{tot})')
         time.sleep(0.5)
     time.sleep(0.5)
     bar.empty()
@@ -80,10 +80,10 @@ def progress():
         placeholder.error('Trial Unfinished.', icon="⛔")
     if stage == 1 and state['proceed1']:
         state['auto'] = trial
-        st.switch_page('pages/mpnn.py')
+        st.switch_page('mpnn.py')
     elif stage == 2 and state['proceed2']:
         state['auto'] = trial
-        st.switch_page('pages/colabfold.py')
+        st.switch_page('colabfold.py')
 
 
 def extract_chains(pdb):

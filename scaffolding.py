@@ -14,15 +14,16 @@ def try_run():
     pdb = st.file_uploader('Input a PDB for motif reference', '.pdb')
     if st.button('Confirm', use_container_width=True):
         assert pdb is not None, 'No PDB uploaded.'
-        cache_dir = cache / str(datetime.now())
+        cache_dir = cache / f'{datetime.now()} motif_scaffolding'
+        input_dir = cache_dir / indir
+        input_dir.mkdir(parents=True, exist_ok=True)
         t = cache_dir / 'config.yml'
-        cfg = get_config()
-        sync(cfg['diffusion'])
+        cfg = get_config(active)
         cfg['diffusion']['protein'] = pdb.name
-        with open(cache_dir / cfg['diffusion']['protein'], 'wb') as f:
-            f.write(pdb.getvalue())
+        sync(cfg['diffusion'])
+        cfg['name'] = 'TestJob'
         put_config(cfg, t)
-        with open(cache_dir / pdb.name, 'wb') as f:
+        with open(input_dir / pdb.name, 'wb') as f:
             f.write(pdb.getvalue())
         setup_process(t)
         st.rerun()
@@ -30,7 +31,7 @@ def try_run():
 
 def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp, beta):
     cmd = f"""
-    cd {wkdir}
+    cd "{wkdir}"
     {exe} inference.output_prefix={prefix} inference.input_pdb={indir}/{protein} \
     'contigmap.contigs={convert_selection(contig)}' inference.num_designs={n_design} diffuser.T={n_timestamp} \
     {'inference.ckpt_override_path=models/Complex_beta_ckpt.pt' if beta else ''}
@@ -47,24 +48,29 @@ def sync(config):
     config['n_timestamp'] = state['n_timestamp']
     config['contig'] = table_update(config['contig'], state['contig'])
     config['inpaint'] = table_update(config['inpaint'], state['inpaint'])
-    config['protein'] = state['protein'].name
 
 
 def save():
     sync(cfg['diffusion'])
-    with open(active.parent / indir / cfg['diffusion']['protein'], 'wb') as f:
-        f.write(state['protein'].getvalue())
+    d = active.parent / indir
+    d.mkdir(parents=True, exist_ok=True)
+    if state['protein'] is not None:
+        config['protein'] = state['protein'].name
+        with open(d / cfg['diffusion']['protein'], 'wb') as f:
+            f.write(state['protein'].getvalue())
     put_config(cfg, active)
     st.toast('Configuration saved!', icon="✅")
 
 
 def setup_process(trial):
-    state['auto'] = None
-    shutil.rmtree(trial.parent / outdir, ignore_errors=True)
+    p = trial.parent
+    o = p / outdir
     cfg = get_config(trial)
-    cmd = get_cmd(trial.parent, **cfg['diffusion'])
+    state['auto'] = None
+    shutil.rmtree(o, ignore_errors=True)
+    cmd = get_cmd(p, **cfg['diffusion'])
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-    state['process_args'] = cfg['diffusion']['n_design'], f'Motif scaffolding for {cfg["name"]}..', outdir, wildcard, 1, trial
+    state['process_args'] = cfg['diffusion']['n_design'], f'Motif scaffolding for {cfg["name"]}..', o, wildcard, 1, trial
 
 
 if __name__ == '__page__':
@@ -72,7 +78,7 @@ if __name__ == '__page__':
     active = state['current_trial']
     indir = 'diffusion_input'
     outdir = 'diffusion'
-    prefix = outdir + '/Design'
+    prefix = outdir + '/design'
     wildcard = f'{prefix}*.pdb'
 
     config = configparser.ConfigParser()
@@ -102,7 +108,9 @@ if __name__ == '__page__':
             col1.number_input('Number of designs', 1, value=config['n_design'], step=10, format='%d', key='n_design')
             col1.checkbox('Use beta model', config['beta'], key='beta')
             col2.number_input('Number of timestamps', 15, value=config['n_timestamp'], step=10, format='%d', key='n_timestamp')
-            pdb = None if active is None else active.parent / config['protein']
+            pdb = None
+            if active is not None and config['protein'] is not None:
+                pdb = active.parent / indir / config['protein']
             st.subheader('Contigs Setting')
             table_edit(config['contig'], pdb, key='contig')
             st.write('*Save your protein file to refresh the chain choices.*')

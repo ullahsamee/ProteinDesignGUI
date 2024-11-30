@@ -29,10 +29,11 @@ if __name__ == '__main__':
         od = np.argsort(scores)
         rank = 1
         last_score = None
+        name = i.name
+        if name.startswith('design_'):
+            name = f'Design{name[7:]}'
         for j in od:
-            name = f'{i.name}_Sample{samples[j]}_model{models[j]}_Rank{rank}.pdb'
-            print(name)
-            shutil.copy(pdbs[j], path / name)
+            shutil.copy(pdbs[j], path / f'{name}_Sample{samples[j]}_model{models[j]}_Rank{rank}.pdb')
             if last_score is not None and last_score < scores[j]:
                 last_score = scores[j]
                 rank += 1
