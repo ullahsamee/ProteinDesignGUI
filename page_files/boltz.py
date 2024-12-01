@@ -32,10 +32,12 @@ def try_run():
 def get_cmd(wkdir, n_recycle, n_sampling, n_diffusion, msa_pairing_strategy):
     cmd = f"""
     cd "{wkdir}"
+    rm -r {indir}
     mkdir -p {indir}
     {exe_pre} seqs {indir}
-    boltz predict {indir} --recycling_steps {n_recycle} --use_msa_server --sampling_steps {n_sampling} --diffusion_samples {n_diffusion} \
-        --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir {outdir}
+    boltz predict {indir} --recycling_steps {n_recycle} --use_msa_server --sampling_steps {n_sampling} \
+        --diffusion_samples {n_diffusion} --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir ./
+    mv boltz_results_{indir} {outdir}
     {exe_post} {outdir}
     """
     return cmd
@@ -69,7 +71,7 @@ if __name__ == '__page__':
     active = state['current_trial']
     indir = 'boltz_input'
     outdir = 'AF3'
-    wildcard = f'{outdir}/*.pdb'
+    wildcard = f'{outdir}/predictions/*/*.pdb'
 
     config = configparser.ConfigParser()
     config.read('settings.conf')
@@ -114,7 +116,5 @@ if __name__ == '__page__':
         try_run()
     elif clicked2:
         setup_process(active)
-
     if process_ongoing():
         progress()
-    test_auto()

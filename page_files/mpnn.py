@@ -125,4 +125,3 @@ if __name__ == '__page__':
 
     if process_ongoing():
         progress()
-    test_auto()
