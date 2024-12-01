@@ -4,6 +4,7 @@ import subprocess
 from os.path import expandvars
 from datetime import datetime
 import shutil
+from Bio import SeqIO
 
 
 state = st.session_state
@@ -62,7 +63,9 @@ def setup_process(trial):
     cfg = get_config(trial)
     cmd = get_cmd(wkdir, **cfg['boltz'])
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
-    nfiles = len([*(wkdir / indir).glob(f'*.fasta')])
+    nfiles = 0
+    for i in wkdir.glob('seqs/*.fasta'):
+        nfiles += len([*SeqIO.parse(i, 'fasta')])
     state['process_args'] = cfg['boltz']['n_diffusion'] * nfiles, f'Folding for {cfg["name"]}..', wkdir, wildcard, 3, trial
 
 
