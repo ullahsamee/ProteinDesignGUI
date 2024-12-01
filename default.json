@@ -15,7 +15,7 @@
       "max_len": []
     }
   },
-  "fold": {
+  "colabfold": {
     "use_amber": false,
     "use_template": false,
     "n_mod": 1,
@@ -33,7 +33,14 @@
     }
   },
   "qc": {
+    "fold": 3,
     "win_size": 8,
     "max_gap": 30
+  },
+  "boltz": {
+    "n_recycle": 3,
+    "n_sampling": 200,
+    "n_diffusion": 1,
+    "msa_pairing_strategy": "greedy"
   }
 }

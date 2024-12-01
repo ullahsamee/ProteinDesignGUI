@@ -63,27 +63,40 @@ def visual(pdb_list):
         st_molstar_content(pdb, 'pdb', height='500px')
 
 
+def test_auto():
+    state = st.session_state
+    if state['process_args'] is None:
+        return
+    stage, trial = state['process_args'][-2:]
+    state['auto'] = trial
+    if stage == 1 and state['proceed1']:
+        st.switch_page('mpnn.py')
+    elif stage == 2 and state['proceed2']:
+        method = get_config(trial)['qc']['fold']
+        if method == 2:
+            st.switch_page('page_files/colabfold.py')
+        else:
+            st.switch_page('page_files/boltz.py')
+    elif stage == 3 and state['proceed3']:
+        st.switch_page('page_files/qc.py')
+    else:
+        state['auto'] = None
+
+
 def progress():
     state = st.session_state
     placeholder = st.sidebar.container()
-    tot, msg, outdir, wildcard, stage, trial = st.session_state['process_args']
+    tot, msg, outdir, wildcard, stage, trial = state['process_args']
     bar = placeholder.progress(0, msg)
     while state['process'].poll() is None:
         pro = len([*outdir.glob(wildcard)])
         bar.progress(pro / tot, msg + f' ({pro}/{tot})')
         time.sleep(0.5)
-    time.sleep(0.5)
     bar.empty()
     if state['process'].returncode == 0:
         placeholder.success('Trial complete!', icon="✅")
     else:
         placeholder.error('Trial Unfinished.', icon="⛔")
-    if stage == 1 and state['proceed1']:
-        state['auto'] = trial
-        st.switch_page('mpnn.py')
-    elif stage == 2 and state['proceed2']:
-        state['auto'] = trial
-        st.switch_page('colabfold.py')
 
 
 def extract_chains(pdb):

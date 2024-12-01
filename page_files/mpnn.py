@@ -89,7 +89,7 @@ if __name__ == '__page__':
     exe_parse = f"python {config['Paths']['ProteinMPNN']}/helper_scripts/parse_multiple_chains.py"
     exe_assign = f"python {config['Paths']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
     exe_fix = f"python {config['Paths']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
-    exe_post = f"python {Path(__file__).parent}/tools/postprocess_seq.py"
+    exe_post = f"python {Path(__file__).parent.parent}/tools/postprocess_seq.py"
     cache = Path(expandvars(config['Paths']['cache']))
 
     if state['auto'] is not None:
@@ -125,3 +125,4 @@ if __name__ == '__page__':
 
     if process_ongoing():
         progress()
+    test_auto()

@@ -36,4 +36,4 @@ if __name__ == '__main__':
         shutil.move(prot, diff_in)
 
     if fold.exists():
-        os.system(f'python {Path(__file__).parent}/postprocess_fold.py {fold}')
+        os.system(f'python {Path(__file__).parent}/postprocess_colabfold.py {fold}')
