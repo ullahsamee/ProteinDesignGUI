@@ -9,10 +9,11 @@ from datetime import datetime
 state = st.session_state
 
 
-@st.dialog('Try with uploading a protein structure')
+@st.dialog('Continue with uploading a protein structure', width='large')
 def try_run():
     pdb = st.file_uploader('Input a PDB for motif reference', '.pdb')
-    if st.button('Confirm', use_container_width=True):
+    _, col, _ = st.columns(3)
+    if col.button('Confirm', use_container_width=True):
         assert pdb is not None, 'No PDB uploaded.'
         cache_dir = cache / f'{datetime.now()} motif_scaffolding'
         input_dir = cache_dir / indir

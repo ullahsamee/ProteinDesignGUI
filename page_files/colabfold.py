@@ -10,22 +10,24 @@ from Bio import SeqIO
 state = st.session_state
 
 
-@st.dialog('Try with uploading protein sequences')
+@st.dialog('Continue with inputting sequences', width='large')
 def try_run():
-    seqs = st.file_uploader('Input FASTAs for folding', '.fasta', True)
-    if st.button('Confirm', use_container_width=True):
-        assert len(seqs) > 0, 'No FASTA sequences.'
-        cache_dir = cache / f'{datetime.now()} colabfold'
+    st.write('Input chain sequences of a protein')
+    table = st.data_editor(pd.DataFrame({'chain': []}, dtype=str), use_container_width=True, num_rows='dynamic', hide_index=True,
+                           column_config={'chain': st.column_config.TextColumn('Chains', required=True)})
+    _, col, _ = st.columns(3)
+    if col.button('Submit', use_container_width=True, disabled=len(table) == 0):
+        cache_dir = cache / f'{datetime.now()} boltz'
         input_dir = cache_dir / 'seqs'
         input_dir.mkdir(parents=True, exist_ok=True)
         t = cache_dir / 'config.yml'
         cfg = get_config(active)
-        sync(cfg['colabfold'])
+        sync(cfg['boltz'])
         cfg['name'] = 'TestJob'
         put_config(cfg, t)
-        for i in seqs:
-            with open(input_dir / i.name, 'wb') as f:
-                f.write(i.getvalue())
+        with open(input_dir / 'test.fasta', 'w') as f:
+            f.write('>Test\n')
+            f.write(':\n'.join(table['chain']))
         setup_process(t)
         st.rerun()
 
@@ -126,9 +128,9 @@ if __name__ == '__page__':
             col1.select_slider('Number of models', [1, 2, 3, 4, 5], config['n_mod'], key='n_mod')
             col2.number_input('Number of recycle', 1, value=config['n_recycle'], key='n_recycle')
             col1, col2, col3 = st.columns(3)
-            clicked1 = col1.form_submit_button('Try', use_container_width=True)
-            col2.form_submit_button('Save', use_container_width=True, on_click=save, disabled=active is None)
-            clicked2 = col3.form_submit_button('Run', use_container_width=True, type='primary', on_click=save, disabled=active is None)
+            clicked1 = col1.form_submit_button('TEST', use_container_width=True)
+            col2.form_submit_button('SAVE', use_container_width=True, on_click=save, disabled=active is None)
+            clicked2 = col3.form_submit_button('PROCESS', use_container_width=True, type='primary', on_click=save, disabled=active is None)
 
     if process_ongoing() and (clicked1 or clicked2):
         st.toast('Process busy!', icon="🚨")
