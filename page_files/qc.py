@@ -109,8 +109,8 @@ if __name__ == '__page__':
             ops = [2, 3]
             col3.selectbox('AlphaFold version', ops, ops.index(config['fold']), key='fold')
             col1, col2 = st.columns(2)
-            col1.form_submit_button('Save', use_container_width=True, on_click=save, disabled=active is None)
-            clicked = col2.form_submit_button('Calculate', use_container_width=True, on_click=save, disabled=active is None,
+            col1.form_submit_button('SAVE', use_container_width=True, on_click=save, disabled=active is None)
+            clicked = col2.form_submit_button('COMPUTE', use_container_width=True, on_click=save, disabled=active is None,
                                               type='primary')
 
     if state['auto'] is not None:

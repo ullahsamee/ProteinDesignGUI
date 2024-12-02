@@ -9,10 +9,11 @@ from datetime import datetime
 state = st.session_state
 
 
-@st.dialog('Try with uploading protein structures')
+@st.dialog('Continue with uploading protein structures', width='large')
 def try_run():
     pdbs = st.file_uploader('Input PDBs for sequence prediction', '.pdb', True)
-    if st.button('Confirm', use_container_width=True):
+    _, col, _ = st.columns(3)
+    if col.button('Confirm', use_container_width=True):
         assert len(pdbs) > 0, 'No PDB uploaded.'
         cache_dir = cache / f'{datetime.now()} mpnn'
         input_dir = cache_dir / indir
@@ -112,9 +113,9 @@ if __name__ == '__page__':
             table_edit(config['fixed'], None, key='fixed')
             st.checkbox('Invert fixed positions', config['invert_fix'], key='invert_fix')
             col1, col2, col3 = st.columns(3)
-            clicked1 = col1.form_submit_button('Try', use_container_width=True)
-            col2.form_submit_button('Save', use_container_width=True, on_click=save, disabled=active is None)
-            clicked2 = col3.form_submit_button('Process', use_container_width=True, type='primary', on_click=save, disabled=active is None)
+            clicked1 = col1.form_submit_button('TEST', use_container_width=True)
+            col2.form_submit_button('SAVE', use_container_width=True, on_click=save, disabled=active is None)
+            clicked2 = col3.form_submit_button('PROCESS', use_container_width=True, type='primary', on_click=save, disabled=active is None)
 
     if process_ongoing() and (clicked1 or clicked2):
         st.toast('Process busy!', icon="🚨")
