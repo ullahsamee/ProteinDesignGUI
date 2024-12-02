@@ -81,7 +81,7 @@ def run(trial):
         table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'max PAE', 'pTM'])
     else:
         table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'plddt', 'pTM'])
-    table.to_csv(active.parent / outfile, index=False)
+    table.to_csv(active.parent / f'AF{config["fold"]}_qc.csv', index=False)
     st.dataframe(table, hide_index=True, use_container_width=True, column_config={
         "sequence": st.column_config.TextColumn(width='medium')
     })
@@ -92,7 +92,6 @@ if __name__ == '__page__':
     active = state['current_trial']
     indir1 = 'seqs'
     indir3 = 'diffusion'
-    outfile = 'qc.csv'
 
     st.title('Quality Control')
     tab1, = st.tabs(['Configure'])
