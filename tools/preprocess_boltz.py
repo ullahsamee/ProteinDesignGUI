@@ -10,6 +10,8 @@ if __name__ == '__main__':
         for rank, record in enumerate(SeqIO.parse(fa, 'fasta')):
             metadata = record.description.split(", ")
             metadata_dict = {item.split("=")[0]: item.split("=")[1] for item in metadata if "=" in item}
+            if 'sample' not in metadata_dict:
+                metadata_dict['sample'] = 1
             name = fa.stem
             if name.startswith('design_'):
                 name = f'Design{name[7:]}'

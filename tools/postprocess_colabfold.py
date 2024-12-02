@@ -2,12 +2,22 @@ import sys
 from pathlib import Path
 import numpy as np
 import shutil
+import re
+
+
+def is_numeric(s):
+    # Regular expression to match integers and floats
+    pattern = r'^-?\d+(\.\d+)?$'
+    return bool(re.match(pattern, s))
 
 
 def get_field(name, key):
-    f1 = name.find(f'_{key}_') + len(key) + 2
-    f2 = name.find('_', f1)
-    return name[f1:f2]
+    name = name.split(f'_{key}_')[-1]
+    f = name.find('_')
+    name = name[:f]
+    if f < 0 or not is_numeric(name):
+        return '0'
+    return name
 
 
 if __name__ == '__main__':
@@ -18,14 +28,14 @@ if __name__ == '__main__':
         pdbs = [*i.glob('*.pdb')]
         flag = False
         for j in pdbs:
-            if '_relaxed_' in j.name:
+            if '_relaxed_' in j.stem:
                 flag = True
                 break
         if flag:
-            pdbs = [j for j in pdbs if '_relaxed_' in j.name]
-        scores = [float(get_field(j.name, 'score')) for j in pdbs]
-        samples = [get_field(j.name, 'sample') for j in pdbs]
-        models = [get_field(j.name, 'model') for j in pdbs]
+            pdbs = [j for j in pdbs if '_relaxed_' in j.stem]
+        scores = [float(get_field(j.stem, 'score')) for j in pdbs]
+        samples = [get_field(j.stem, 'sample') for j in pdbs]
+        models = [get_field(j.stem, 'model') for j in pdbs]
         od = np.argsort(scores)
         rank = 1
         last_score = None
