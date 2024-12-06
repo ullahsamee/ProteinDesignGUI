@@ -62,7 +62,7 @@ if __name__ == '__page__':
                 trials = state['trials']
                 for t in trials:
                     c = get_config(t)
-                    c = {'name': c['name'], **c['diffusion'], **c['fold'], **c['mpnn']}
+                    c = {'name': c['name'], **c['diffusion'], **c['mpnn']}
                     c['contig'] = convert_selection(c['contig'])
                     c['inpaint'] = convert_selection(c['inpaint'])
                     c['fixed'] = convert_selection(c['fixed'])
