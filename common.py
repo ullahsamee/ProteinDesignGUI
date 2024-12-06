@@ -80,7 +80,7 @@ def progress():
 
     state['auto'] = trial
     if stage == 1 and state['proceed1']:
-        st.switch_page('mpnn.py')
+        st.switch_page('page_files/mpnn.py')
     elif stage == 2 and state['proceed2']:
         method = get_config(trial)['qc']['fold']
         if method == 2:
