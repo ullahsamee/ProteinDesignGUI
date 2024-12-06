@@ -37,13 +37,16 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
     if fix_motif:
         cmd = f"""
         cd "{wkdir}"
-        mkdir -p {tdir}
         for pdb in `ls {indir}/*.pdb`; do
-            trb="${{path%.pdb}}.trb" 
+            rm -r {tdir}
+            mkdir -p {tdir}
+            trb="${{pdb%.pdb}}.trb"
+            echo $t
             output=`{exe_pre} $trb`
             chains=`echo "$output" | sed -n '1p'`
             to_fix=`echo "$output" | sed -n '2p'`
-            {exe_parse} --input_path=$pdb --output_path={tdir}/parsed_pdbs.jsonl
+            cp $pdb {tdir}
+            {exe_parse} --input_path={tdir} --output_path={tdir}/parsed_pdbs.jsonl
             {exe_assign} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/assigned_pdbs.jsonl --chain_list "$chains"
             {exe_fix} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/fixed_pdbs.jsonl --chain_list "$chains" --position_list "$to_fix"
             {exe_main} --jsonl_path {tdir}/parsed_pdbs.jsonl --chain_id_jsonl {tdir}/assigned_pdbs.jsonl --fixed_positions_jsonl {tdir}/fixed_pdbs.jsonl \

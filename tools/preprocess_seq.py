@@ -13,4 +13,4 @@ if __name__ == '__main__':
         to_fix[i].append(j)
     chains = sorted(to_fix.keys())
     print(' '.join(chains))
-    print(','.join([' '.join(sorted(to_fix[i])) for i in chains]))
+    print(','.join([' '.join([str(j) for j in sorted(to_fix[i])]) for i in chains]))
