@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from os.path import expandvars
 from datetime import datetime
+import pickle
 
 
 state = st.session_state
@@ -30,31 +31,51 @@ def try_run():
         st.rerun()
 
 
-def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n):
+def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_motif):
     if not isinstance(fixed, pd.DataFrame):
         fixed = pd.DataFrame(fixed, dtype=str)
-    to_fix = []
-    for c in chains:
-        temp = set()
-        for ind, row in fixed[fixed['chain'] == c].iterrows():
-            temp |= set([str(k) for k in range(int(row['min_len']), int(row['max_len'])+1)])
-        to_fix.append(' '.join(sorted(temp)))
-    to_fix = ','.join(to_fix)
-    chains = ' '.join(chains)
-    cmd = f"""
-    cd "{wkdir}"
-    {exe_parse} --input_path=diffusion --output_path=parsed_pdbs.jsonl
-    {exe_assign} --input_path=parsed_pdbs.jsonl --output_path=assigned_pdbs.jsonl --chain_list "{chains}"
-    {exe_fix} --input_path=parsed_pdbs.jsonl --output_path=fixed_pdbs.jsonl --chain_list "{chains}" --position_list "{to_fix}" {'--specify_non_fixed' if invert_fix else ''}
-    {exe_main} --jsonl_path parsed_pdbs.jsonl --chain_id_jsonl assigned_pdbs.jsonl --fixed_positions_jsonl fixed_pdbs.jsonl \
-        --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
-    {exe_post} seqs {top_n}
-    """
+    if fix_motif:
+        cmd = f"""
+        cd "{wkdir}"
+        mkdir -p {tdir}
+        for pdb in `ls {indir}/*.pdb`; do
+            trb="${{path%.pdb}}.trb" 
+            output=`{exe_pre} $trb`
+            chains=`echo "$output" | sed -n '1p'`
+            to_fix=`echo "$output" | sed -n '2p'`
+            {exe_parse} --input_path=$pdb --output_path={tdir}/parsed_pdbs.jsonl
+            {exe_assign} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/assigned_pdbs.jsonl --chain_list "$chains"
+            {exe_fix} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/fixed_pdbs.jsonl --chain_list "$chains" --position_list "$to_fix"
+            {exe_main} --jsonl_path {tdir}/parsed_pdbs.jsonl --chain_id_jsonl {tdir}/assigned_pdbs.jsonl --fixed_positions_jsonl {tdir}/fixed_pdbs.jsonl \
+                --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
+        done 
+        {exe_post} seqs {top_n}
+        """
+    else:
+        to_fix = []
+        for c in chains:
+            temp = set()
+            for ind, row in fixed[fixed['chain'] == c].iterrows():
+                temp |= set([str(k) for k in range(int(row['min_len']), int(row['max_len']) + 1)])
+            to_fix.append(' '.join(sorted(temp)))
+        to_fix = ','.join(to_fix)
+        chains = ' '.join(chains)
+        cmd = f"""
+        cd "{wkdir}"
+        mkdir -p {tdir}
+        {exe_parse} --input_path={indir} --output_path={tdir}/parsed_pdbs.jsonl
+        {exe_assign} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/assigned_pdbs.jsonl --chain_list "{chains}"
+        {exe_fix} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/fixed_pdbs.jsonl --chain_list "{chains}" --position_list "{to_fix}" {'--specify_non_fixed' if invert_fix else ''}
+        {exe_main} --jsonl_path {tdir}/parsed_pdbs.jsonl --chain_id_jsonl {tdir}/assigned_pdbs.jsonl --fixed_positions_jsonl {tdir}/fixed_pdbs.jsonl \
+            --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
+        {exe_post} seqs {top_n}
+        """
     return cmd
 
 
 def sync(config):
     config['n_sample'] = state['n_sample']
+    config['fix_motif'] = state['fix_motif']
     config['top_n'] = state['top_n']
     config['temperature'] = state['temperature']
     config['invert_fix'] = state['invert_fix']
@@ -82,6 +103,7 @@ if __name__ == '__page__':
     trials = state['trials']
     active = state['current_trial']
     indir = 'diffusion'
+    tdir = 'seq_input'
     wildcard = 'seqs/*'
 
     config = configparser.ConfigParser()
@@ -91,6 +113,7 @@ if __name__ == '__page__':
     exe_assign = f"python {config['Paths']['ProteinMPNN']}/helper_scripts/assign_fixed_chains.py"
     exe_fix = f"python {config['Paths']['ProteinMPNN']}/helper_scripts/make_fixed_positions_dict.py"
     exe_post = f"python {Path(__file__).parent.parent}/tools/postprocess_seq.py"
+    exe_pre = f"python {Path(__file__).parent.parent}/tools/preprocess_seq.py"
     cache = Path(expandvars(config['Paths']['cache']))
 
     if state['auto'] is not None:
@@ -106,12 +129,15 @@ if __name__ == '__page__':
     tab1, = st.tabs(['Configure'])
     with tab1:
         with st.form('form'):
-            st.number_input('Number of samples', 1, None, config['n_sample'], key='n_sample')
-            st.number_input('Top N', 1, None, config['top_n'], key='top_n')
-            st.number_input('Temperature', 0., 1., config['temperature'], key='temperature')
+            col1, col2, col3 = st.columns(3)
+            col1.number_input('Number of samples', 1, None, config['n_sample'], key='n_sample')
+            col2.number_input('Top N', 1, None, config['top_n'], key='top_n')
+            col3.number_input('Temperature', 0., 1., config['temperature'], key='temperature')
             st.subheader('Fixed Positions')
+            col1, col2 = st.columns([2, 1])
+            col1.checkbox('Automatic fixing motifs (will overwrite other options)', config['fix_motif'], key='fix_motif')
+            col2.checkbox('Invert fixed positions', config['invert_fix'], key='invert_fix')
             table_edit(config['fixed'], None, key='fixed')
-            st.checkbox('Invert fixed positions', config['invert_fix'], key='invert_fix')
             col1, col2, col3 = st.columns(3)
             clicked1 = col1.form_submit_button('TEST', use_container_width=True)
             col2.form_submit_button('SAVE', use_container_width=True, on_click=save, disabled=active is None)

@@ -26,6 +26,7 @@
     "temperature": 0.1,
     "invert_fix": false,
     "top_n": 2,
+    "fix_motif": true,
     "fixed": {
       "chain": [],
       "min_len": [],
