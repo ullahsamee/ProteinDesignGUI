@@ -44,7 +44,7 @@ def get_error2(path: Path):
     return data['confidence_score'], data['ptm'], data['complex_plddt']
 
 def run(trial):
-    cfg = get_config(active)
+    cfg = get_config(trial)
     config = cfg['qc']
     p, a = PDBParser(), CEAligner(config['win_size'], config['max_gap'])
     table = []
@@ -81,7 +81,7 @@ def run(trial):
         table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'max PAE', 'pTM'])
     else:
         table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'plddt', 'pTM'])
-    table.to_csv(active.parent / f'AF{config["fold"]}_qc.csv', index=False)
+    table.to_csv(trial.parent / f'AF{config["fold"]}_qc.csv', index=False)
     st.dataframe(table, hide_index=True, use_container_width=True, column_config={
         "sequence": st.column_config.TextColumn(width='medium')
     })
