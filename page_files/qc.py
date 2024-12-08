@@ -5,6 +5,7 @@ from Bio.PDB import PDBParser
 from Bio.PDB.cealign import CEAligner
 import json
 from Bio import SeqIO
+import numpy as np
 
 
 state = st.session_state
@@ -32,7 +33,7 @@ def get_error(path: Path, dname):
     data = next((path.parent / dname).glob(f'*_sample_{sample_num}_*scores*.json'))
     with open(data, 'r') as f:
         data = json.load(f)
-    return data['max_pae'], data['ptm']
+    return np.mean(data['pae']), data['ptm']
 
 
 def get_error2(path: Path):
@@ -64,7 +65,7 @@ def run(trial):
                         'filename': mod.stem,
                         'sequence': str(record.seq),
                         'RMSD': a.rms,
-                        'max PAE': pae,
+                        'mean PAE': pae,
                         'pTM': ptm
                     })
                 else:
