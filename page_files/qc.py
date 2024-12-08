@@ -33,7 +33,7 @@ def get_error(path: Path, dname):
     data = next((path.parent / dname).glob(f'*_sample_{sample_num}_*scores*.json'))
     with open(data, 'r') as f:
         data = json.load(f)
-    return np.mean(data['pae']), data['ptm']
+    return np.mean(data['pae']), data['ptm'], np.mean(data['plddt'])
 
 
 def get_error2(path: Path):
@@ -60,12 +60,13 @@ def run(trial):
             for mod in (trial.parent / f'AF{config["fold"]}').glob(f'{name}_Sample{metadata_dict["sample"]}_*.pdb'):
                 a.align(p.get_structure('b', mod), False)
                 if config['fold'] == 2:
-                    pae, ptm = get_error(mod, i.stem)
+                    pae, ptm, plddt = get_error(mod, i.stem)
                     table.append({
                         'filename': mod.stem,
                         'sequence': str(record.seq),
                         'RMSD': a.rms,
                         'mean PAE': pae,
+                        'mean pLDDT': plddt,
                         'pTM': ptm
                     })
                 else:
@@ -76,12 +77,12 @@ def run(trial):
                         'RMSD': a.rms,
                         'conf': conf,
                         'pTM': ptm,
-                        'plddt': plddt
+                        'pLDDT': plddt
                     })
     if config['fold'] == 2:
-        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'mean PAE', 'pTM'])
+        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'mean PAE', 'pTM', 'mean pLDDT'])
     else:
-        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'plddt', 'pTM'])
+        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'pLDDT', 'pTM'])
     table.to_csv(trial.parent / f'AF{config["fold"]}_qc.csv', index=False)
     st.dataframe(table, hide_index=True, use_container_width=True, column_config={
         "sequence": st.column_config.TextColumn(width='medium')
