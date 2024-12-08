@@ -79,7 +79,7 @@ def run(trial):
                         'plddt': plddt
                     })
     if config['fold'] == 2:
-        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'max PAE', 'pTM'])
+        table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'mean PAE', 'pTM'])
     else:
         table = pd.DataFrame(table, columns=['filename', 'sequence', 'RMSD', 'plddt', 'pTM'])
     table.to_csv(trial.parent / f'AF{config["fold"]}_qc.csv', index=False)
