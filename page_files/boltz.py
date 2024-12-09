@@ -15,12 +15,13 @@ state = st.session_state
 @st.dialog('Continue with inputting sequences', width='large')
 def try_run():
     st.write('Input chain sequences of a protein')
-    table = st.data_editor(pd.DataFrame({'chain': []}, dtype=str), use_container_width=True, num_rows='dynamic', hide_index=True,
-                           column_config={'chain': st.column_config.TextColumn('Chains', required=True)})
+    table = st.data_editor(pd.DataFrame({'type': [], 'chain': []}, dtype=str), use_container_width=True, num_rows='dynamic', hide_index=True,
+                           column_config={'chain': st.column_config.TextColumn('Chains', required=True),
+                                          'type': st.column_config.SelectboxColumn('Type', required=True, options=['protein', 'ccd', 'smiles'])})
     _, col, _ = st.columns(3)
     if col.button('Submit', use_container_width=True, disabled=len(table) == 0):
         cache_dir = cache / f'{datetime.now()} boltz'
-        input_dir = cache_dir / 'seqs'
+        input_dir = cache_dir / indir
         input_dir.mkdir(parents=True, exist_ok=True)
         t = cache_dir / 'config.yml'
         cfg = get_config(active)
@@ -28,22 +29,37 @@ def try_run():
         cfg['name'] = 'TestJob'
         put_config(cfg, t)
         with open(input_dir / 'test.fasta', 'w') as f:
-            f.write('>Test\n')
-            f.write(':\n'.join(table['chain']))
+            a = 65
+            for ind, row in table.iterrows():
+                f.write(f'>{chr(a)}|{row["type"]}\n')
+                f.write(row["chain"] + '\n')
+                a += 1
         setup_process(t)
         st.rerun()
 
 
 def get_cmd(wkdir, n_recycle, n_sampling, n_diffusion, msa_pairing_strategy):
     cmd = f"""
+    cleanup() {{
+        echo "Signal received. Killing subprocess..."
+        if [ -n "$pid" ] && ps -p $pid > /dev/null; then
+            kill $pid
+        fi
+        echo "Cleanup complete. Exiting."
+        exit 1
+    }}
+    trap cleanup SIGINT SIGTERM
     cd "{wkdir}"
-    rm -r {indir}
-    mkdir -p {indir}
-    {exe_pre} seqs {indir}
+    if [ -d seqs ]; then
+        rm -r {indir}
+        mkdir -p {indir}
+        {exe_pre} seqs {indir}
+    fi
     boltz predict {indir} --recycling_steps {n_recycle} --use_msa_server --sampling_steps {n_sampling} \
-        --diffusion_samples {n_diffusion} --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir ./
-    mv boltz_results_{indir} {outdir}
-    {exe_post} {outdir}
+        --diffusion_samples {n_diffusion} --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir ./ && \
+        mv boltz_results_{indir} {outdir} && {exe_post} {outdir} &
+    pid=$!
+    wait $pid
     """
     return cmd
 
@@ -66,11 +82,12 @@ def setup_process(trial):
     shutil.rmtree(wkdir / outdir, ignore_errors=True)
     cfg = get_config(trial)
     cmd = get_cmd(wkdir, **cfg['boltz'])
-    state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     nfiles = 0
     for i in wkdir.glob('seqs/*.fasta'):
         nfiles += len([*SeqIO.parse(i, 'fasta')])
-    state['process_args'] = cfg['boltz']['n_diffusion'] * nfiles, f'Folding for {cfg["name"]}..', wkdir, wildcard, 3, trial
+    assert not (wkdir / indir).exists() and nfiles > 0, "Nothing to process."
+    state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
+    state['process_args'] = max(cfg['boltz']['n_diffusion'] * nfiles, 1), f'Folding for {cfg["name"]}..', wkdir, wildcard, 3, trial
 
 
 if __name__ == '__page__':

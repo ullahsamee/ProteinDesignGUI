@@ -43,7 +43,7 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
             kill $pid
         fi
         echo "Cleanup complete. Exiting."
-        exit 0
+        exit 1
     }}
     cd "{wkdir}"
     trap cleanup SIGINT SIGTERM
@@ -54,10 +54,10 @@ def get_cmd(wkdir, n_recycle, n_mod, use_amber, use_template):
         {exe} $fa $outdir --num-models {n_mod} --num-recycle {n_recycle} {'--amber' if use_amber else ''} {'--template' if use_template else ''} &
         pid=$!
         wait $pid
-    done &
+    done && {exe_post} {outdir} &
     pid=$!
     wait $pid
-    {exe_post} {outdir}
+    
     """
     return cmd
 
@@ -80,10 +80,11 @@ def setup_process(trial):
     shutil.rmtree(wkdir / outdir, ignore_errors=True)
     cfg = get_config(trial)
     cmd = get_cmd(wkdir, **cfg['colabfold'])
-    state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     nfiles = 0
     for i in wkdir.glob('seqs/*.fasta'):
         nfiles += len([*SeqIO.parse(i, 'fasta')])
+    assert nfiles > 0, "Nothing to process."
+    state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     state['process_args'] = cfg['colabfold']['n_mod'] * nfiles, f'Folding for {cfg["name"]}..', wkdir, wildcard, 3, trial
 
 

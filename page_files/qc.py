@@ -1,9 +1,6 @@
-import pandas as pd
-
 from common import *
 from Bio.PDB import PDBParser
 from Bio.PDB.cealign import CEAligner
-import json
 from Bio import SeqIO
 import numpy as np
 

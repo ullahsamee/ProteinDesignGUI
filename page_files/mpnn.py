@@ -36,8 +36,18 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
         fixed = pd.DataFrame(fixed, dtype=str)
     if fix_motif:
         cmd = f"""
+        cleanup() {{
+        echo "Signal received. Killing subprocess..."
+        if [ -n "$pid" ] && ps -p $pid > /dev/null; then
+            kill $pid
+        fi
+        echo "Cleanup complete. Exiting."
+        exit 1
+        }}
+        trap cleanup SIGINT SIGTERM
         cd "{wkdir}"
         for pdb in `ls {indir}/*.pdb`; do
+            trap cleanup SIGINT SIGTERM
             rm -r {tdir}
             mkdir -p {tdir}
             trb="${{pdb%.pdb}}.trb"
@@ -50,9 +60,12 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
             {exe_assign} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/assigned_pdbs.jsonl --chain_list "$chains"
             {exe_fix} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/fixed_pdbs.jsonl --chain_list "$chains" --position_list "$to_fix"
             {exe_main} --jsonl_path {tdir}/parsed_pdbs.jsonl --chain_id_jsonl {tdir}/assigned_pdbs.jsonl --fixed_positions_jsonl {tdir}/fixed_pdbs.jsonl \
-                --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
-        done 
-        {exe_post} seqs {top_n}
+                --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37 &
+            pid=$!
+            wait $pid
+        done && {exe_post} seqs {top_n} &
+        pid=$!
+        wait $pid
         """
     else:
         to_fix = []
@@ -98,6 +111,7 @@ def setup_process(trial):
     shutil.rmtree(o, ignore_errors=True)
     files = [*(p / indir).glob(f'*.pdb')]
     cmd = get_cmd(p, extract_chains(files[0]), **cfg['mpnn'])
+    assert len(files) > 0, "Nothing to process."
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]}..', o, wildcard, 2, trial
 

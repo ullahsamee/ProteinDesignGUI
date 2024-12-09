@@ -25,7 +25,8 @@ if __name__ == '__main__':
     pg = st.navigation(
         {
             "": [st.Page('page_files/home.py', title="Getting Started")],
-            "Design": [st.Page('page_files/scaffolding.py', title='Motif Scaffolding', icon='🎏')],
+            "Design": [st.Page('page_files/scaffold.py', title='Motif Scaffolding', icon='🎏'),
+                       st.Page('page_files/skip.py', title='Skip Designing', icon='📦')],
             "Export": [st.Page('page_files/mpnn.py', title='ProteinMPNN', icon='🎢'),
                        st.Page('page_files/colabfold.py', title='AlphaFold2 (ColabFold)', icon='🛝'),
                        st.Page('page_files/boltz.py', title='AlphaFold3 (Boltz-1)', icon='🛝')],
