@@ -56,10 +56,10 @@ def get_cmd(wkdir, n_recycle, n_sampling, n_diffusion, msa_pairing_strategy):
         {exe_pre} seqs {indir}
     fi
     boltz predict {indir} --recycling_steps {n_recycle} --use_msa_server --sampling_steps {n_sampling} \
-        --diffusion_samples {n_diffusion} --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir ./ && \
-        mv boltz_results_{indir} {outdir} && {exe_post} {outdir} &
+        --diffusion_samples {n_diffusion} --output_format pdb --msa_pairing_strategy {msa_pairing_strategy} --out_dir ./ &
     pid=$!
     wait $pid
+    mv boltz_results_{indir} {outdir} && {exe_post} {outdir}
     """
     return cmd
 
@@ -85,7 +85,7 @@ def setup_process(trial):
     nfiles = 0
     for i in wkdir.glob('seqs/*.fasta'):
         nfiles += len([*SeqIO.parse(i, 'fasta')])
-    assert not (wkdir / indir).exists() and nfiles > 0, "Nothing to process."
+    assert (wkdir / indir).exists() or nfiles > 0, "Nothing to process."
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     state['process_args'] = max(cfg['boltz']['n_diffusion'] * nfiles, 1), f'Folding for {cfg["name"]}..', wkdir, wildcard, 3, trial
 

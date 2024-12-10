@@ -31,15 +31,25 @@ def try_run():
 
 
 def get_cmd(wkdir, protein, contig, inpaint, n_design, n_timestamp, beta):
+    temp = convert_selection(inpaint)
     cmd = f"""
+    cleanup() {{
+        echo "Signal received. Killing subprocess..."
+        if [ -n "$pid" ] && ps -p $pid > /dev/null; then
+            kill -9 $pid
+        fi
+        echo "Cleanup complete. Exiting."
+        exit 1
+    }}
+    trap cleanup SIGINT SIGTERM
+    
     cd "{wkdir}"
     {exe} inference.output_prefix={prefix} inference.input_pdb={indir}/{protein} \
     'contigmap.contigs={convert_selection(contig)}' inference.num_designs={n_design} diffuser.T={n_timestamp} \
-    {'inference.ckpt_override_path=models/Complex_beta_ckpt.pt' if beta else ''}
+    {'inference.ckpt_override_path=models/Complex_beta_ckpt.pt' if beta else ''} {f"'contigmap.inpaint_seq={temp}'" if len(temp) > 2 else ''} &
+    pid=$!
+    wait $pid
     """
-    temp = convert_selection(inpaint)
-    if len(temp) > 2:
-        cmd += f" 'contigmap.inpaint_seq={temp}'"
     return cmd
 
 
