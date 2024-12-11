@@ -27,6 +27,8 @@
     "invert_fix": false,
     "top_n": 2,
     "fix_motif": true,
+    "erode_n": 0,
+    "erode_c": 0,
     "fixed": {
       "chain": [],
       "min_len": [],

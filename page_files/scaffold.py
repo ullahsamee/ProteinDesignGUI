@@ -122,9 +122,11 @@ if __name__ == '__page__':
             pdb = None
             if active is not None and config['protein'] is not None:
                 pdb = active.parent / indir / config['protein']
+            st.divider()
             st.subheader('Contigs Setting')
             table_edit(config['contig'], pdb, key='contig')
             st.write('*Save your protein file to refresh the chain choices.*')
+            st.divider()
             st.subheader('Inpaint Setting')
             table_edit(config['inpaint'], pdb, key='inpaint')
             st.write('*Save your protein file to refresh the chain choices.*')

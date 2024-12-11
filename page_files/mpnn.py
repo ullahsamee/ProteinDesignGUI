@@ -31,7 +31,7 @@ def try_run():
         st.rerun()
 
 
-def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_motif):
+def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_motif, erode_n, erode_c):
     if not isinstance(fixed, pd.DataFrame):
         fixed = pd.DataFrame(fixed, dtype=str)
     if fix_motif:
@@ -52,7 +52,7 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
             mkdir -p {tdir}
             trb="${{pdb%.pdb}}.trb"
             echo $t
-            output=`{exe_pre} $trb`
+            output=`{exe_pre} $trb {erode_n} {erode_c} $pdb`
             chains=`echo "$output" | sed -n '1p'`
             to_fix=`echo "$output" | sed -n '2p'`
             cp $pdb {tdir}
@@ -77,13 +77,24 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
         to_fix = ','.join(to_fix)
         chains = ' '.join(chains)
         cmd = f"""
+        cleanup() {{
+        echo "Signal received. Killing subprocess..."
+        if [ -n "$pid" ] && ps -p $pid > /dev/null; then
+            kill $pid
+        fi
+        echo "Cleanup complete. Exiting."
+        exit 1
+        }}
+        trap cleanup SIGINT SIGTERM
         cd "{wkdir}"
         mkdir -p {tdir}
         {exe_parse} --input_path={indir} --output_path={tdir}/parsed_pdbs.jsonl
         {exe_assign} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/assigned_pdbs.jsonl --chain_list "{chains}"
         {exe_fix} --input_path={tdir}/parsed_pdbs.jsonl --output_path={tdir}/fixed_pdbs.jsonl --chain_list "{chains}" --position_list "{to_fix}" {'--specify_non_fixed' if invert_fix else ''}
         {exe_main} --jsonl_path {tdir}/parsed_pdbs.jsonl --chain_id_jsonl {tdir}/assigned_pdbs.jsonl --fixed_positions_jsonl {tdir}/fixed_pdbs.jsonl \
-            --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37
+            --out_folder ./ --num_seq_per_target {n_sample} --sampling_temp "{temperature}" --seed 37 &
+        pid=$!
+        wait $pid
         {exe_post} seqs {top_n}
         """
     return cmd
@@ -91,6 +102,8 @@ def get_cmd(wkdir, chains, n_sample, temperature, fixed, invert_fix, top_n, fix_
 
 def sync(config):
     config['n_sample'] = state['n_sample']
+    config['erode_n'] = state['erode_n']
+    config['erode_c'] = state['erode_c']
     config['fix_motif'] = state['fix_motif']
     config['top_n'] = state['top_n']
     config['temperature'] = state['temperature']
@@ -110,8 +123,8 @@ def setup_process(trial):
     o = p / 'seqs'
     shutil.rmtree(o, ignore_errors=True)
     files = [*(p / indir).glob(f'*.pdb')]
-    cmd = get_cmd(p, extract_chains(files[0]), **cfg['mpnn'])
     assert len(files) > 0, "Nothing to process."
+    cmd = get_cmd(p, extract_chains(files[0]), **cfg['mpnn'])
     state['process'] = subprocess.Popen(['/bin/bash', '-c', cmd])
     state['process_args'] = len(files), f'Predicting sequences for {cfg["name"]}..', o, wildcard, 2, trial
 
@@ -150,11 +163,18 @@ if __name__ == '__page__':
             col1.number_input('Number of samples', 1, None, config['n_sample'], key='n_sample')
             col2.number_input('Top N', 1, None, config['top_n'], key='top_n')
             col3.number_input('Temperature', 0., 1., config['temperature'], key='temperature')
-            st.subheader('Fixed Positions')
-            col1, col2 = st.columns([2, 1])
-            col1.checkbox('Automatic fixing motifs (will overwrite other options)', config['fix_motif'], key='fix_motif')
-            col2.checkbox('Invert fixed positions', config['invert_fix'], key='invert_fix')
+            st.divider()
+
+            st.subheader('Fixing Motifs')
+            col1, col2 = st.columns(2)
+            col1.number_input('Erode fixed motif from N terminus', 0, None, config['erode_n'], key='erode_n')
+            col2.number_input('Erode fixed motif from C terminus', 0, None, config['erode_c'], key='erode_c')
+            st.checkbox('Automatic fixing motifs (will overwrite options below)', config['fix_motif'], key='fix_motif')
+            st.divider()
+
+            st.subheader('Designated Fixing')
             table_edit(config['fixed'], None, key='fixed')
+            st.checkbox('Invert fixed positions', config['invert_fix'], key='invert_fix')
             col1, col2, col3 = st.columns(3)
             clicked1 = col1.form_submit_button('TEST', use_container_width=True)
             col2.form_submit_button('SAVE', use_container_width=True, on_click=save, disabled=active is None)
